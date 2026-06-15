@@ -458,6 +458,115 @@ function RegisterModal({
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
+// DeleteClassModal — confirmation modal for deleting a class
+// ─────────────────────────────────────────────────────────────────────────────
+function DeleteClassModal({
+  isOpen,
+  onClose,
+  classNameToDelete,
+  onConfirm,
+  isDeleting,
+}: {
+  isOpen: boolean;
+  onClose: () => void;
+  classNameToDelete: string;
+  onConfirm: () => void;
+  isDeleting: boolean;
+}) {
+  return (
+    <AnimatePresence>
+      {isOpen && (
+        <div className="fixed inset-0 z-[100] flex items-center justify-center p-4">
+          {/* Backdrop */}
+          <motion.div
+            key="backdrop"
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            transition={{ duration: 0.2 }}
+            className="absolute inset-0"
+            style={{ backgroundColor: "rgba(0, 0, 0, 0.6)", backdropFilter: "blur(4px)" }}
+            onClick={onClose}
+          />
+
+          {/* Central warning card */}
+          <motion.div
+            key="warning-card"
+            initial={{ opacity: 0, scale: 0.95 }}
+            animate={{ opacity: 1, scale: 1 }}
+            exit={{ opacity: 0, scale: 0.95 }}
+            transition={{ type: "spring", stiffness: 350, damping: 25 }}
+            className="relative z-10 w-full max-w-md overflow-hidden rounded-3xl border p-6"
+            style={{
+              backgroundColor: "var(--bg-surface)",
+              borderColor: "var(--border-subtle)",
+              boxShadow: "var(--shadow-xl)",
+            }}
+          >
+            <div className="flex flex-col items-center text-center gap-4">
+              {/* Warning/Trash Icon */}
+              <div
+                className="flex h-12 w-12 items-center justify-center rounded-2xl"
+                style={{
+                  backgroundColor: "color-mix(in srgb, var(--danger-500) 10%, transparent)",
+                  color: "var(--danger-500)",
+                }}
+              >
+                <Trash2 size={24} />
+              </div>
+
+              {/* Title & Description */}
+              <div className="space-y-2">
+                <h3 className="text-base font-bold" style={{ color: "var(--text-primary)" }}>
+                  Delete Class
+                </h3>
+                <p className="text-sm leading-relaxed" style={{ color: "var(--text-secondary)" }}>
+                  Are you sure you want to permanently delete the class &quot;{classNameToDelete}&quot; and all of its enrolled students? This action is permanent and cannot be undone.
+                </p>
+              </div>
+
+              {/* Action Buttons */}
+              <div className="flex w-full gap-3 mt-2">
+                <button
+                  type="button"
+                  onClick={onClose}
+                  disabled={isDeleting}
+                  className="flex-1 rounded-xl border py-2.5 text-sm font-semibold transition-colors disabled:opacity-50"
+                  style={{
+                    borderColor: "var(--border-default)",
+                    color: "var(--text-secondary)",
+                    backgroundColor: "var(--bg-surface)",
+                  }}
+                >
+                  Cancel
+                </button>
+                <motion.button
+                  type="button"
+                  onClick={onConfirm}
+                  disabled={isDeleting}
+                  whileHover={{ scale: isDeleting ? 1 : 1.02 }}
+                  whileTap={{ scale: isDeleting ? 1 : 0.98 }}
+                  className="flex-1 items-center justify-center rounded-xl py-2.5 text-sm font-semibold text-white bg-red-600 hover:bg-red-700 disabled:opacity-60 transition-colors shadow-sm"
+                >
+                  {isDeleting ? (
+                    <span className="flex items-center justify-center gap-2">
+                      <RefreshCw size={14} className="animate-spin" />
+                      Deleting…
+                    </span>
+                  ) : (
+                    "Delete Class"
+                  )}
+                </motion.button>
+              </div>
+            </div>
+          </motion.div>
+        </div>
+      )}
+    </AnimatePresence>
+  );
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
 // Main page
 // ─────────────────────────────────────────────────────────────────────────────
 export default function StudentsPage() {
@@ -484,6 +593,8 @@ export default function StudentsPage() {
   const [activeStudentModal, setActiveStudentModal] = useState<Student | null>(null);
   const [studentToDelete, setStudentToDelete] = useState<Student | null>(null);
   const [deleting, setDeleting] = useState(false);
+  const [classToDelete, setClassToDelete] = useState<string | null>(null);
+  const [deletingClass, setDeletingClass] = useState(false);
 
   // ─────────────────────────────────────────────────────────────────────────
   // Fetch available classes
@@ -611,6 +722,37 @@ export default function StudentsPage() {
       setCreatingClass(false);
     }
   }
+
+  // ─────────────────────────────────────────────────────────────────────────
+  // Delete class selection & confirmation handlers
+  // ─────────────────────────────────────────────────────────────────────────
+  const handleDeleteClassClick = useCallback((className: string, e: React.MouseEvent) => {
+    e.stopPropagation(); // prevent card select action from triggering loading class phase
+    setClassToDelete(className);
+  }, []);
+
+  const handleDeleteClassConfirm = useCallback(async () => {
+    if (!classToDelete) return;
+    setDeletingClass(true);
+    try {
+      await request(API_ENDPOINTS.classes.delete(classToDelete), {
+        method: "DELETE",
+      });
+      toast(`✓ Class "${classToDelete}" has been deleted successfully`, "success");
+      
+      // Update local state immediately
+      setClasses((prev) => prev.filter((c) => c !== classToDelete));
+      
+      if (selectedClass === classToDelete) {
+        setSelectedClass(null);
+      }
+      setClassToDelete(null);
+    } catch (err) {
+      toast(err instanceof Error ? err.message : "Failed to delete class", "error");
+    } finally {
+      setDeletingClass(false);
+    }
+  }, [classToDelete, request, toast, selectedClass]);
 
   // ─────────────────────────────────────────────────────────────────────────
   // Filtered student list (client-side search)
@@ -763,7 +905,7 @@ export default function StudentsPage() {
                 initial="hidden"
                 animate="visible"
               >
-                <ClassCard name={cls} onSelect={selectClass} />
+                 <ClassCard name={cls} onSelect={selectClass} />
               </motion.div>
             ))}
           </motion.div>
@@ -822,6 +964,13 @@ export default function StudentsPage() {
         </div>
 
         <div className="flex gap-2">
+          <button
+            onClick={() => setClassToDelete(selectedClass)}
+            className="flex items-center gap-1.5 rounded-xl border px-4 py-2 text-xs font-semibold text-red-500 hover:bg-red-50/10 border-red-500/20 transition-all"
+          >
+            <Trash2 size={13} />
+            Delete Class
+          </button>
           <button
             onClick={() => fetchStudents(selectedClass)}
             className="flex items-center gap-2 rounded-xl border px-4 py-2 text-xs font-semibold"
@@ -1245,6 +1394,15 @@ export default function StudentsPage() {
           </div>
         )}
       </Modal>
+
+      {/* Delete Class Confirmation Modal */}
+      <DeleteClassModal
+        isOpen={classToDelete !== null}
+        onClose={() => setClassToDelete(null)}
+        classNameToDelete={classToDelete ?? ""}
+        onConfirm={handleDeleteClassConfirm}
+        isDeleting={deletingClass}
+      />
     </div>
   );
 }

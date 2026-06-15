@@ -41,6 +41,7 @@ export const API_ENDPOINTS = {
   // --- Classes ---
   classes: {
     create: `${API_BASE_URL}/api/classes/create`,
+    delete: (className: string) => `${API_BASE_URL}/classes/${className}`,
   },
 
   // --- Camera (Jinja-rendered page, not a JSON API) ---
