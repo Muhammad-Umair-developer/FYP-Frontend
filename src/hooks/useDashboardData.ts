@@ -87,15 +87,15 @@ export function useDashboardData(): DashboardData {
     const token = getStoredToken() ?? undefined;
 
     try {
-      // ── 1. Total students ──────────────────────────────────────────────
-      // API: GET /students/list?limit=1 (we only need the count field)
-      const studentsRes = await fetch(
-        `${API_ENDPOINTS.students.list}?skip=0&limit=1`,
+      // ── 1. Dashboard Stats ──────────────────────────────────────────────
+      // API: GET /dashboard/stats
+      const statsRes = await fetch(
+        API_ENDPOINTS.dashboardStats,
         { headers: token ? { Authorization: `Bearer ${token}` } : {} }
       );
-      const studentsData: StudentsListResponse = studentsRes.ok
-        ? await studentsRes.json()
-        : { students: [], count: 0 };
+      const statsData = statsRes.ok
+        ? await statsRes.json() as { total_students: number; active_classes: number }
+        : { total_students: 0, active_classes: 0 };
 
       // ── 2. Today's attendance ──────────────────────────────────────────
       // API: GET /attendance/?date=YYYY-MM-DD&limit=200
@@ -119,8 +119,8 @@ export function useDashboardData(): DashboardData {
       const trend = generateMockTrend();
 
       setMetrics({
-        totalStudents: studentsData.count,
-        activeClasses: null, // no list-classes endpoint yet
+        totalStudents: statsData.total_students,
+        activeClasses: statsData.active_classes,
         todayPresentCount: presentToday,
         todayTotalCount: attendanceData.count,
         sentimentIndex: 74,

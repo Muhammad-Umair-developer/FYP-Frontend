@@ -15,6 +15,7 @@ export const API_ENDPOINTS = {
   test:     `${API_BASE_URL}/test`,
   apiInfo:  `${API_BASE_URL}/api/info`,
   apiRoot:  `${API_BASE_URL}/api`,
+  dashboardStats: `${API_BASE_URL}/dashboard/stats`,
 
   // --- Auth ---
   login:    `${API_BASE_URL}/auth/login`,
