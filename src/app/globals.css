@@ -1,26 +1,223 @@
 @import "tailwindcss";
 
+/* =========================================================
+   DESIGN TOKENS — CSS Custom Properties
+   All colours reference these tokens so switching themes
+   only requires toggling the .dark class on <html>.
+   ========================================================= */
+
 :root {
-  --background: #ffffff;
-  --foreground: #171717;
+  /* --- Brand palette --- */
+  --brand-50:  #eef2ff;
+  --brand-100: #e0e7ff;
+  --brand-200: #c7d2fe;
+  --brand-300: #a5b4fc;
+  --brand-400: #818cf8;
+  --brand-500: #6366f1;  /* primary */
+  --brand-600: #4f46e5;
+  --brand-700: #4338ca;
+  --brand-800: #3730a3;
+  --brand-900: #312e81;
+
+  /* --- Accent (emerald for "present / success") --- */
+  --accent-400: #34d399;
+  --accent-500: #10b981;
+  --accent-600: #059669;
+
+  /* --- Danger (rose for "absent / error") --- */
+  --danger-400: #fb7185;
+  --danger-500: #f43f5e;
+  --danger-600: #e11d48;
+
+  /* --- Warning (amber for "late / caution") --- */
+  --warning-400: #fbbf24;
+  --warning-500: #f59e0b;
+  --warning-600: #d97706;
+
+  /* --- Neutral surface / background --- */
+  --bg-page:      #f8fafc;
+  --bg-surface:   #ffffff;
+  --bg-elevated:  #f1f5f9;
+  --bg-muted:     #e2e8f0;
+
+  /* --- Text --- */
+  --text-primary:   #0f172a;
+  --text-secondary: #475569;
+  --text-muted:     #94a3b8;
+  --text-inverted:  #f8fafc;
+
+  /* --- Border --- */
+  --border-subtle:  #e2e8f0;
+  --border-default: #cbd5e1;
+  --border-strong:  #94a3b8;
+
+  /* --- Shadow --- */
+  --shadow-sm: 0 1px 2px 0 rgb(0 0 0 / 0.05);
+  --shadow-md: 0 4px 6px -1px rgb(0 0 0 / 0.1), 0 2px 4px -2px rgb(0 0 0 / 0.1);
+  --shadow-lg: 0 10px 15px -3px rgb(0 0 0 / 0.1), 0 4px 6px -4px rgb(0 0 0 / 0.1);
+  --shadow-xl: 0 20px 25px -5px rgb(0 0 0 / 0.1), 0 8px 10px -6px rgb(0 0 0 / 0.1);
+
+  /* --- Radius --- */
+  --radius-sm:  0.375rem;
+  --radius-md:  0.5rem;
+  --radius-lg:  0.75rem;
+  --radius-xl:  1rem;
+  --radius-2xl: 1.5rem;
+  --radius-full: 9999px;
+
+  /* --- Transitions --- */
+  --transition-fast:   150ms cubic-bezier(0.4, 0, 0.2, 1);
+  --transition-normal: 300ms cubic-bezier(0.4, 0, 0.2, 1);
+  --transition-slow:   500ms cubic-bezier(0.4, 0, 0.2, 1);
 }
 
+/* =========================================================
+   DARK MODE OVERRIDES
+   Applied when next-themes sets class="dark" on <html>
+   ========================================================= */
+.dark {
+  --bg-page:      #09090b;
+  --bg-surface:   #18181b;
+  --bg-elevated:  #27272a;
+  --bg-muted:     #3f3f46;
+
+  --text-primary:   #fafafa;
+  --text-secondary: #a1a1aa;
+  --text-muted:     #71717a;
+  --text-inverted:  #09090b;
+
+  --border-subtle:  #27272a;
+  --border-default: #3f3f46;
+  --border-strong:  #52525b;
+
+  --shadow-sm: 0 1px 2px 0 rgb(0 0 0 / 0.4);
+  --shadow-md: 0 4px 6px -1px rgb(0 0 0 / 0.4), 0 2px 4px -2px rgb(0 0 0 / 0.4);
+  --shadow-lg: 0 10px 15px -3px rgb(0 0 0 / 0.4), 0 4px 6px -4px rgb(0 0 0 / 0.4);
+  --shadow-xl: 0 20px 25px -5px rgb(0 0 0 / 0.4), 0 8px 10px -6px rgb(0 0 0 / 0.4);
+}
+
+/* =========================================================
+   TAILWIND v4 THEME EXTENSION
+   Maps CSS vars into Tailwind utility classes
+   ========================================================= */
 @theme inline {
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
+  /* Fonts */
+  --font-sans: var(--font-inter);
+  --font-mono: var(--font-fira-code);
+
+  /* Brand colors — accessible as bg-brand-*, text-brand-*, etc. */
+  --color-brand-50:  var(--brand-50);
+  --color-brand-100: var(--brand-100);
+  --color-brand-200: var(--brand-200);
+  --color-brand-300: var(--brand-300);
+  --color-brand-400: var(--brand-400);
+  --color-brand-500: var(--brand-500);
+  --color-brand-600: var(--brand-600);
+  --color-brand-700: var(--brand-700);
+  --color-brand-800: var(--brand-800);
+  --color-brand-900: var(--brand-900);
+
+  /* Semantic surface tokens — accessible as bg-page, bg-surface, etc. */
+  --color-page:      var(--bg-page);
+  --color-surface:   var(--bg-surface);
+  --color-elevated:  var(--bg-elevated);
+  --color-muted:     var(--bg-muted);
+
+  /* Semantic text tokens */
+  --color-text-primary:   var(--text-primary);
+  --color-text-secondary: var(--text-secondary);
+  --color-text-muted:     var(--text-muted);
+  --color-text-inverted:  var(--text-inverted);
+
+  /* Semantic border tokens */
+  --color-border-subtle:  var(--border-subtle);
+  --color-border-default: var(--border-default);
+  --color-border-strong:  var(--border-strong);
+
+  /* Status colours */
+  --color-accent-400:  var(--accent-400);
+  --color-accent-500:  var(--accent-500);
+  --color-accent-600:  var(--accent-600);
+  --color-danger-400:  var(--danger-400);
+  --color-danger-500:  var(--danger-500);
+  --color-danger-600:  var(--danger-600);
+  --color-warning-400: var(--warning-400);
+  --color-warning-500: var(--warning-500);
+  --color-warning-600: var(--warning-600);
+
+  /* Radius tokens */
+  --radius-sm:   var(--radius-sm);
+  --radius-md:   var(--radius-md);
+  --radius-lg:   var(--radius-lg);
+  --radius-xl:   var(--radius-xl);
+  --radius-2xl:  var(--radius-2xl);
+  --radius-full: var(--radius-full);
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-  }
+/* =========================================================
+   BASE STYLES
+   ========================================================= */
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+html {
+  scroll-behavior: smooth;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
 }
 
 body {
-  background: var(--background);
-  color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+  min-height: 100dvh;
+  background-color: var(--bg-page);
+  color: var(--text-primary);
+  font-family: var(--font-inter), system-ui, -apple-system, sans-serif;
+  /* Smooth theme transition — prevents jarring flashes when toggling dark/light */
+  transition:
+    background-color var(--transition-normal),
+    color var(--transition-normal);
+}
+
+/* =========================================================
+   SCROLLBAR — custom minimal scrollbar for desktop
+   ========================================================= */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+  background: var(--border-default);
+  border-radius: var(--radius-full);
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: var(--border-strong);
+}
+
+/* =========================================================
+   FOCUS RING — accessible, branded
+   ========================================================= */
+:focus-visible {
+  outline: 2px solid var(--brand-500);
+  outline-offset: 2px;
+}
+
+/* =========================================================
+   SELECTION
+   ========================================================= */
+::selection {
+  background-color: var(--brand-200);
+  color: var(--brand-900);
+}
+
+.dark ::selection {
+  background-color: var(--brand-800);
+  color: var(--brand-100);
 }
