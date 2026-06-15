@@ -5,13 +5,14 @@ import { motion, AnimatePresence } from "framer-motion";
 import {
   Users, Plus, Search, RefreshCw, AlertCircle,
   BookOpen, ChevronRight, Camera, Trash2, X,
-  CheckCircle2, Upload, FolderPlus,
+  CheckCircle2, Upload, FolderPlus, Download,
 } from "lucide-react";
 import { Modal } from "@/components/ui/Modal";
 import { useToast } from "@/components/ui/Toast";
 import { useApiClient } from "@/hooks/useApiClient";
+import { getStoredToken } from "@/hooks/useAuth";
 import { API_ENDPOINTS, API_BASE_URL } from "@/config/api";
-import type { Student, StudentsListResponse, StudentRegisterResponse } from "@/types/api";
+import type { Student, StudentsListResponse, StudentRegisterResponse, AttendanceRecord, AttendanceListResponse } from "@/types/api";
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Animation helpers
@@ -587,6 +588,8 @@ export default function StudentsPage() {
   const [loadingStudents, setLoadingStudents] = useState(false);
   const [studentsError,   setStudentsError]   = useState<string | null>(null);
   const [searchQuery,     setSearchQuery]     = useState("");
+  const [attendanceRecords, setAttendanceRecords] = useState<AttendanceRecord[]>([]);
+  const [downloadingReport, setDownloadingReport] = useState(false);
 
   // ── Modal state ──
   const [showRegisterModal, setShowRegisterModal] = useState(false);
@@ -636,12 +639,23 @@ export default function StudentsPage() {
     setLoadingStudents(true);
     setStudentsError(null);
     setStudents([]);
+    setAttendanceRecords([]);
     try {
       const data = await request<StudentsListResponse>(
         API_ENDPOINTS.students.list,
         { params: { class_name: className, limit: 200, skip: 0 } }
       );
       setStudents(data.students);
+
+      try {
+        const attData = await request<AttendanceListResponse>(
+          API_ENDPOINTS.attendance.list,
+          { params: { class_name: className, limit: 1000 } }
+        );
+        setAttendanceRecords(attData.records);
+      } catch (attErr) {
+        console.error("Failed to load attendance records:", attErr);
+      }
     } catch (err) {
       const msg = err instanceof Error ? err.message : "Failed to load students";
       setStudentsError(msg);
@@ -682,7 +696,73 @@ export default function StudentsPage() {
     setStudents([]);
     setStudentsError(null);
     setSearchQuery("");
+    setAttendanceRecords([]);
   }
+
+  const getStudentAttendanceStatus = useCallback((studentId: string, records: AttendanceRecord[]) => {
+    const todayLocalStr = new Date().toLocaleDateString('en-CA'); // "YYYY-MM-DD"
+    const todayUTCStr = new Date().toISOString().split('T')[0]; // "YYYY-MM-DD"
+    
+    const isToday = (dateStr: string) => {
+      if (!dateStr) return false;
+      const datePart = dateStr.split('T')[0];
+      return datePart === todayLocalStr || datePart === todayUTCStr;
+    };
+
+    const cleanStudentId = studentId.replace(/^0+/, "");
+    
+    const match = records.find(r => {
+      if (!isToday(r.date)) return false;
+      
+      const recordId = r.student_id;
+      if (recordId === studentId) return true;
+      
+      const cleanRecordId = recordId.replace(/^0+/, "");
+      const rMatch = recordId.match(/.*-(\d+)$/);
+      const sMatch = studentId.match(/.*-(\d+)$/);
+      const rSuffix = rMatch ? rMatch[1].replace(/^0+/, "") : cleanRecordId;
+      const sSuffix = sMatch ? sMatch[1].replace(/^0+/, "") : cleanStudentId;
+      
+      return rSuffix === sSuffix && rSuffix !== "";
+    });
+    
+    return match ? "Present" : "Absent";
+  }, []);
+
+  const handleDownloadReport = useCallback(async () => {
+    if (!selectedClass) return;
+    setDownloadingReport(true);
+    try {
+      const token = getStoredToken();
+      const headers: Record<string, string> = {};
+      if (token) {
+        headers["Authorization"] = `Bearer ${token}`;
+      }
+      
+      const response = await fetch(API_ENDPOINTS.classes.exportAttendance(selectedClass), {
+        headers
+      });
+      
+      if (!response.ok) {
+        throw new Error(`Failed to download report: ${response.statusText}`);
+      }
+      
+      const blob = await response.blob();
+      const url = window.URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `attendance_${selectedClass}_${new Date().toISOString().split('T')[0]}.xlsx`;
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      window.URL.revokeObjectURL(url);
+      toast("✓ Attendance report downloaded successfully", "success");
+    } catch (err) {
+      toast(err instanceof Error ? err.message : "Failed to download report", "error");
+    } finally {
+      setDownloadingReport(false);
+    }
+  }, [selectedClass, toast]);
 
   // ─────────────────────────────────────────────────────────────────────────
   // Create new class
@@ -936,9 +1016,181 @@ export default function StudentsPage() {
     );
   }
 
-  // ─────────────────────────────────────────────────────────────────────────
-  // Render — Student Directory Phase
-  // ─────────────────────────────────────────────────────────────────────────
+  const studentsWithAttendance = filtered.map(s => ({
+    ...s,
+    attendance: getStudentAttendanceStatus(s.student_id, attendanceRecords)
+  }));
+  const presentStudents = studentsWithAttendance.filter(s => s.attendance === "Present");
+  const registeredStudents = studentsWithAttendance;
+
+  const renderStudentTable = (studentList: typeof registeredStudents) => {
+    return (
+      <div className="overflow-x-auto">
+        <table className="w-full">
+          <thead>
+            <tr
+              style={{
+                borderBottom: "1px solid var(--border-subtle)",
+                backgroundColor: "var(--bg-elevated)",
+              }}
+            >
+              {["Student", "Registration No.", "Images", "Attendance", "Actions"].map((h) => (
+                <th
+                  key={h}
+                  className="px-5 py-3 text-left text-[11px] font-semibold uppercase tracking-wider"
+                  style={{ color: "var(--text-muted)" }}
+                >
+                  {h}
+                </th>
+              ))}
+            </tr>
+          </thead>
+          <tbody>
+            {studentList.map((student, i) => (
+              <motion.tr
+                key={student.student_id}
+                custom={i}
+                variants={rowVariants}
+                initial="hidden"
+                animate="visible"
+                style={{
+                  borderBottom:
+                    i < studentList.length - 1
+                      ? "1px solid var(--border-subtle)"
+                      : "none",
+                }}
+                onMouseEnter={(e) => {
+                  (e.currentTarget as HTMLElement).style.backgroundColor =
+                    "var(--bg-elevated)";
+                }}
+                onMouseLeave={(e) => {
+                  (e.currentTarget as HTMLElement).style.backgroundColor =
+                    "transparent";
+                }}
+              >
+                {/* Name + avatar */}
+                <td className="px-5 py-4">
+                  <div className="flex items-center gap-3">
+                    <div
+                      className="flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-full text-sm font-bold text-white"
+                      style={{
+                        background: `linear-gradient(135deg, hsl(${(student.name.charCodeAt(0) * 17) % 360}deg 60% 55%), hsl(${(student.name.charCodeAt(0) * 17 + 40) % 360}deg 60% 45%))`,
+                      }}
+                    >
+                      {student.name.charAt(0).toUpperCase()}
+                    </div>
+                    <span
+                      className="font-semibold text-sm"
+                      style={{ color: "var(--text-primary)" }}
+                    >
+                      {student.name}
+                    </span>
+                  </div>
+                </td>
+
+                {/* Reg number */}
+                <td className="px-5 py-4">
+                  <code
+                    className="rounded-lg px-2.5 py-1 font-mono text-xs"
+                    style={{
+                      backgroundColor: "var(--bg-elevated)",
+                      color: "var(--text-secondary)",
+                    }}
+                  >
+                    {student.reg_number}
+                  </code>
+                </td>
+
+                {/* Image count */}
+                <td className="px-5 py-4">
+                  <div className="flex items-center gap-1.5">
+                    {[...Array(5)].map((_, idx) => (
+                      <div
+                        key={idx}
+                        className="h-2 w-2 rounded-full"
+                        style={{
+                          backgroundColor:
+                            idx < (student.image_paths?.length ?? 0)
+                              ? "var(--accent-500)"
+                              : "var(--bg-muted)",
+                        }}
+                      />
+                    ))}
+                    <span className="ml-1 text-xs" style={{ color: "var(--text-muted)" }}>
+                      {student.image_paths?.length ?? 0}/5
+                    </span>
+                  </div>
+                </td>
+
+                {/* Attendance status badge */}
+                <td className="px-5 py-4">
+                  {(() => {
+                    const status = student.attendance;
+                    const isPresent = status === "Present";
+                    return (
+                      <span
+                        className="inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-xs font-semibold"
+                        style={{
+                          backgroundColor: isPresent
+                            ? "color-mix(in srgb, var(--success-500, #10b981) 12%, transparent)"
+                            : "color-mix(in srgb, var(--danger-500, #ef4444) 12%, transparent)",
+                          color: isPresent ? "var(--success-600, #059669)" : "var(--danger-600, #dc2626)",
+                        }}
+                      >
+                        <span
+                          className="h-1.5 w-1.5 rounded-full animate-pulse"
+                          style={{
+                            backgroundColor: isPresent ? "var(--success-500, #10b981)" : "var(--danger-500, #ef4444)",
+                          }}
+                        />
+                        {status}
+                      </span>
+                    );
+                  })()}
+                </td>
+
+                {/* Actions */}
+                <td className="px-5 py-4">
+                  <div className="flex items-center gap-2">
+                    <button
+                      onClick={() => setActiveStudentModal(student)}
+                      className="rounded-lg px-3 py-1.5 text-xs font-semibold transition-colors"
+                      style={{ color: "var(--brand-500)" }}
+                      onMouseEnter={(e) => {
+                        (e.currentTarget as HTMLElement).style.backgroundColor =
+                          "color-mix(in srgb, var(--brand-500) 10%, transparent)";
+                      }}
+                      onMouseLeave={(e) => {
+                        (e.currentTarget as HTMLElement).style.backgroundColor = "transparent";
+                      }}
+                    >
+                      View →
+                    </button>
+                    <button
+                      onClick={() => setStudentToDelete(student)}
+                      className="rounded-lg p-1.5 transition-colors"
+                      style={{ color: "var(--danger-500)" }}
+                      onMouseEnter={(e) => {
+                        (e.currentTarget as HTMLElement).style.backgroundColor =
+                          "color-mix(in srgb, var(--danger-500) 10%, transparent)";
+                      }}
+                      onMouseLeave={(e) => {
+                        (e.currentTarget as HTMLElement).style.backgroundColor = "transparent";
+                      }}
+                      title="Delete Student"
+                    >
+                      <Trash2 size={14} />
+                    </button>
+                  </div>
+                </td>
+              </motion.tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+    );
+  };
+
   return (
     <div className="p-5 sm:p-7 space-y-5">
 
@@ -963,13 +1215,26 @@ export default function StudentsPage() {
           </p>
         </div>
 
-        <div className="flex gap-2">
+        <div className="flex gap-2 flex-wrap sm:flex-nowrap">
           <button
             onClick={() => setClassToDelete(selectedClass)}
             className="flex items-center gap-1.5 rounded-xl border px-4 py-2 text-xs font-semibold text-red-500 hover:bg-red-50/10 border-red-500/20 transition-all"
           >
             <Trash2 size={13} />
             Delete Class
+          </button>
+          <button
+            disabled={downloadingReport}
+            onClick={handleDownloadReport}
+            className="flex items-center gap-2 rounded-xl border px-4 py-2 text-xs font-semibold disabled:opacity-50"
+            style={{ borderColor: "var(--border-default)", color: "var(--text-secondary)", backgroundColor: "var(--bg-surface)" }}
+          >
+            {downloadingReport ? (
+              <RefreshCw size={13} className="animate-spin" />
+            ) : (
+              <Download size={13} />
+            )}
+            Download Attendance Report
           </button>
           <button
             onClick={() => fetchStudents(selectedClass)}
@@ -1041,16 +1306,14 @@ export default function StudentsPage() {
         </motion.div>
       )}
 
-      {/* Student table */}
-      <motion.div
-        initial={{ opacity: 0 }}
-        animate={{ opacity: 1 }}
-        transition={{ duration: 0.35, delay: 0.1 }}
-        className="overflow-hidden rounded-2xl border"
-        style={{ backgroundColor: "var(--bg-surface)", borderColor: "var(--border-subtle)" }}
-      >
-        {loadingStudents ? (
-          <div className="space-y-px p-4">
+      {loadingStudents ? (
+        <motion.div
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          className="overflow-hidden rounded-2xl border p-4"
+          style={{ backgroundColor: "var(--bg-surface)", borderColor: "var(--border-subtle)" }}
+        >
+          <div className="space-y-px">
             {[...Array(4)].map((_, i) => (
               <div key={i} className="flex items-center gap-4 rounded-xl px-2 py-3">
                 <div className="h-9 w-9 animate-pulse rounded-full" style={{ backgroundColor: "var(--bg-elevated)" }} />
@@ -1061,7 +1324,14 @@ export default function StudentsPage() {
               </div>
             ))}
           </div>
-        ) : filtered.length === 0 ? (
+        </motion.div>
+      ) : registeredStudents.length === 0 ? (
+        <motion.div
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          className="overflow-hidden rounded-2xl border"
+          style={{ backgroundColor: "var(--bg-surface)", borderColor: "var(--border-subtle)" }}
+        >
           <div className="flex flex-col items-center justify-center py-20 gap-3">
             <Users size={32} style={{ color: "var(--text-muted)" }} />
             <p className="text-sm" style={{ color: "var(--text-muted)" }}>
@@ -1079,145 +1349,49 @@ export default function StudentsPage() {
               </button>
             )}
           </div>
-        ) : (
-          <div className="overflow-x-auto">
-            <table className="w-full">
-              <thead>
-                <tr
-                  style={{
-                    borderBottom: "1px solid var(--border-subtle)",
-                    backgroundColor: "var(--bg-elevated)",
-                  }}
-                >
-                  {["Student", "Registration No.", "Images", "Actions"].map((h) => (
-                    <th
-                      key={h}
-                      className="px-5 py-3 text-left text-[11px] font-semibold uppercase tracking-wider"
-                      style={{ color: "var(--text-muted)" }}
-                    >
-                      {h}
-                    </th>
-                  ))}
-                </tr>
-              </thead>
-              <tbody>
-                {filtered.map((student, i) => (
-                  <motion.tr
-                    key={student.student_id}
-                    custom={i}
-                    variants={rowVariants}
-                    initial="hidden"
-                    animate="visible"
-                    style={{
-                      borderBottom:
-                        i < filtered.length - 1
-                          ? "1px solid var(--border-subtle)"
-                          : "none",
-                    }}
-                    onMouseEnter={(e) => {
-                      (e.currentTarget as HTMLElement).style.backgroundColor =
-                        "var(--bg-elevated)";
-                    }}
-                    onMouseLeave={(e) => {
-                      (e.currentTarget as HTMLElement).style.backgroundColor =
-                        "transparent";
-                    }}
-                  >
-                    {/* Name + avatar */}
-                    <td className="px-5 py-4">
-                      <div className="flex items-center gap-3">
-                        <div
-                          className="flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-full text-sm font-bold text-white"
-                          style={{
-                            background: `linear-gradient(135deg, hsl(${(student.name.charCodeAt(0) * 17) % 360}deg 60% 55%), hsl(${(student.name.charCodeAt(0) * 17 + 40) % 360}deg 60% 45%))`,
-                          }}
-                        >
-                          {student.name.charAt(0).toUpperCase()}
-                        </div>
-                        <span
-                          className="font-semibold text-sm"
-                          style={{ color: "var(--text-primary)" }}
-                        >
-                          {student.name}
-                        </span>
-                      </div>
-                    </td>
-
-                    {/* Reg number */}
-                    <td className="px-5 py-4">
-                      <code
-                        className="rounded-lg px-2.5 py-1 font-mono text-xs"
-                        style={{
-                          backgroundColor: "var(--bg-elevated)",
-                          color: "var(--text-secondary)",
-                        }}
-                      >
-                        {student.reg_number}
-                      </code>
-                    </td>
-
-                    {/* Image count */}
-                    <td className="px-5 py-4">
-                      <div className="flex items-center gap-1.5">
-                        {[...Array(5)].map((_, idx) => (
-                          <div
-                            key={idx}
-                            className="h-2 w-2 rounded-full"
-                            style={{
-                              backgroundColor:
-                                idx < (student.image_paths?.length ?? 0)
-                                  ? "var(--accent-500)"
-                                  : "var(--bg-muted)",
-                            }}
-                          />
-                        ))}
-                        <span className="ml-1 text-xs" style={{ color: "var(--text-muted)" }}>
-                          {student.image_paths?.length ?? 0}/5
-                        </span>
-                      </div>
-                    </td>
-
-                    {/* Actions */}
-                    <td className="px-5 py-4">
-                      <div className="flex items-center gap-2">
-                        <button
-                          onClick={() => setActiveStudentModal(student)}
-                          className="rounded-lg px-3 py-1.5 text-xs font-semibold transition-colors"
-                          style={{ color: "var(--brand-500)" }}
-                          onMouseEnter={(e) => {
-                            (e.currentTarget as HTMLElement).style.backgroundColor =
-                              "color-mix(in srgb, var(--brand-500) 10%, transparent)";
-                          }}
-                          onMouseLeave={(e) => {
-                            (e.currentTarget as HTMLElement).style.backgroundColor = "transparent";
-                          }}
-                        >
-                          View →
-                        </button>
-                        <button
-                          onClick={() => setStudentToDelete(student)}
-                          className="rounded-lg p-1.5 transition-colors"
-                          style={{ color: "var(--danger-500)" }}
-                          onMouseEnter={(e) => {
-                            (e.currentTarget as HTMLElement).style.backgroundColor =
-                              "color-mix(in srgb, var(--danger-500) 10%, transparent)";
-                          }}
-                          onMouseLeave={(e) => {
-                            (e.currentTarget as HTMLElement).style.backgroundColor = "transparent";
-                          }}
-                          title="Delete Student"
-                        >
-                          <Trash2 size={14} />
-                        </button>
-                      </div>
-                    </td>
-                  </motion.tr>
-                ))}
-              </tbody>
-            </table>
+        </motion.div>
+      ) : (
+        <div className="space-y-8">
+          {/* Section 1: Class Registry */}
+          <div className="space-y-3">
+            <h2 className="text-sm font-bold uppercase tracking-wider" style={{ color: "var(--text-secondary)" }}>
+              Class Registry ({registeredStudents.length})
+            </h2>
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              transition={{ duration: 0.35, delay: 0.1 }}
+              className="overflow-hidden rounded-2xl border"
+              style={{ backgroundColor: "var(--bg-surface)", borderColor: "var(--border-subtle)" }}
+            >
+              {renderStudentTable(registeredStudents)}
+            </motion.div>
           </div>
-        )}
-      </motion.div>
+
+          {/* Section 2: Today's Attendance (Present) */}
+          <div className="space-y-3">
+            <h2 className="text-sm font-bold uppercase tracking-wider" style={{ color: "var(--text-secondary)" }}>
+              Today's Attendance (Present) ({presentStudents.length})
+            </h2>
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              transition={{ duration: 0.35, delay: 0.15 }}
+              className="overflow-hidden rounded-2xl border"
+              style={{ backgroundColor: "var(--bg-surface)", borderColor: "var(--border-subtle)" }}
+            >
+              {presentStudents.length === 0 ? (
+                <div className="flex flex-col items-center justify-center py-12 gap-2 text-xs" style={{ color: "var(--text-muted)" }}>
+                  <Users size={20} style={{ color: "var(--text-muted)", opacity: 0.5 }} />
+                  No students marked present today yet.
+                </div>
+              ) : (
+                renderStudentTable(presentStudents)
+              )}
+            </motion.div>
+          </div>
+        </div>
+      )}
 
       {/* Register modal */}
       <RegisterModal
