@@ -67,22 +67,42 @@ function generateMockTrend(): AttendanceDayPoint[] {
 }
 
 // ---------------------------------------------------------------------------
+// Cache Storage for Instant Dashboard Render (SWR)
+// ---------------------------------------------------------------------------
+let cachedMetrics: DashboardMetrics | null = null;
+let cachedTrend: AttendanceDayPoint[] | null = null;
+let lastFetchedTime = 0;
+const CACHE_TTL = 30_000; // 30 seconds
+
+// ---------------------------------------------------------------------------
 // Hook
 // ---------------------------------------------------------------------------
 export function useDashboardData(): DashboardData {
-  const [metrics, setMetrics] = useState<DashboardMetrics>({
-    totalStudents: 0,
-    activeClasses: null,
-    todayPresentCount: 0,
-    todayTotalCount: 0,
-    sentimentIndex: 74, // mock — replace with real RoBERTa endpoint
+  const isCacheValid = !!(cachedMetrics && cachedTrend && (Date.now() - lastFetchedTime < CACHE_TTL));
+
+  const [metrics, setMetrics] = useState<DashboardMetrics>(() => {
+    if (cachedMetrics) return cachedMetrics;
+    return {
+      totalStudents: 0,
+      activeClasses: null,
+      todayPresentCount: 0,
+      todayTotalCount: 0,
+      sentimentIndex: 74,
+    };
   });
-  const [attendanceTrend, setAttendanceTrend] = useState<AttendanceDayPoint[]>([]);
-  const [loading, setLoading] = useState(true);
+  
+  const [attendanceTrend, setAttendanceTrend] = useState<AttendanceDayPoint[]>(() => {
+    if (cachedTrend) return cachedTrend;
+    return [];
+  });
+  
+  const [loading, setLoading] = useState(!isCacheValid);
   const [error, setError] = useState<string | null>(null);
 
-  const fetchAll = useCallback(async () => {
-    setLoading(true);
+  const fetchAll = useCallback(async (isBackground = false) => {
+    if (!isBackground) {
+      setLoading(true);
+    }
     setError(null);
     const token = getStoredToken() ?? undefined;
 
@@ -114,17 +134,22 @@ export function useDashboardData(): DashboardData {
       ).length;
 
       // ── 3. 7-day trend ─────────────────────────────────────────────────
-      // PRODUCTION: loop 7 days, call GET /attendance/?date=d each time.
-      // Currently using seeded mock data to avoid 7 sequential requests.
       const trend = generateMockTrend();
 
-      setMetrics({
+      const newMetrics = {
         totalStudents: statsData.total_students,
         activeClasses: statsData.active_classes,
         todayPresentCount: presentToday,
         todayTotalCount: attendanceData.count,
         sentimentIndex: 74,
-      });
+      };
+
+      // Update cache
+      cachedMetrics = newMetrics;
+      cachedTrend = trend;
+      lastFetchedTime = Date.now();
+
+      setMetrics(newMetrics);
       setAttendanceTrend(trend);
     } catch (err) {
       const msg =
@@ -138,8 +163,9 @@ export function useDashboardData(): DashboardData {
   }, []);
 
   useEffect(() => {
-    fetchAll();
+    const hasCache = cachedMetrics && cachedTrend;
+    fetchAll(!!hasCache);
   }, [fetchAll]);
 
-  return { metrics, attendanceTrend, loading, error, refetch: fetchAll };
+  return { metrics, attendanceTrend, loading, error, refetch: () => fetchAll(false) };
 }

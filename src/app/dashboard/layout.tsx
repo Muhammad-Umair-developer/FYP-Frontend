@@ -17,6 +17,7 @@ const PAGE_TITLES: Record<string, string> = {
   "/dashboard/attendance": "Attendance Records",
   "/dashboard/courses":    "Course Management",
   "/dashboard/sentiment":  "Sentiment Analysis",
+  "/dashboard/identify":   "Identify Student",
 };
 
 export default function DashboardLayout({
@@ -28,13 +29,17 @@ export default function DashboardLayout({
   const pathname = usePathname();
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const { status: serverStatus, retry } = useServerStatus();
+  const [mounted, setMounted] = useState(false);
 
   // ── Auth guard (client-side) ─────────────────────────────────────────────
   useEffect(() => {
-    if (!isAuthenticated()) router.replace("/");
+    setMounted(true);
+    if (!isAuthenticated()) {
+      router.replace("/");
+    }
   }, [router]);
 
-  if (typeof window !== "undefined" && !isAuthenticated()) return null;
+  if (!mounted || !isAuthenticated()) return null;
 
   const title = PAGE_TITLES[pathname] ?? "Dashboard";
 

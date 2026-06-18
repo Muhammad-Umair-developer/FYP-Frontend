@@ -113,7 +113,7 @@ export default function OverviewPage() {
           href={API_ENDPOINTS.camera}
           target="_blank"
           rel="noopener noreferrer"
-          className="flex items-center gap-2 rounded-xl border px-4 py-2 text-xs font-semibold transition-all hover:shadow-md"
+          className="cursor-pointer flex items-center gap-2 rounded-xl border px-4 py-2 text-xs font-semibold transition-all hover:shadow-md"
           style={{
             borderColor: "var(--border-default)",
             color: "var(--text-secondary)",
@@ -258,7 +258,7 @@ export default function OverviewPage() {
             >
               <Link href={href}>
                 <div
-                  className="group flex h-full flex-col gap-3 rounded-2xl border p-5 transition-all duration-200"
+                  className="cursor-pointer group flex h-full flex-col gap-3 rounded-2xl border p-5 transition-all duration-200"
                   style={{
                     backgroundColor: "var(--bg-surface)",
                     borderColor: "var(--border-subtle)",

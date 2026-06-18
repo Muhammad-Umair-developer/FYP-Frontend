@@ -37,7 +37,7 @@ export function ThemeSwitcher({ compact = false }: { compact?: boolean }) {
             key={value}
             onClick={() => setTheme(value)}
             whileTap={{ scale: 0.92 }}
-            className="relative flex items-center gap-1.5 rounded-lg px-2.5 py-1.5 text-xs font-medium outline-none transition-colors"
+            className="cursor-pointer relative flex items-center gap-1.5 rounded-lg px-2.5 py-1.5 text-xs font-medium outline-none transition-colors"
             style={{
               color: isActive ? "var(--text-inverted)" : "var(--text-muted)",
             }}

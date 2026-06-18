@@ -12,6 +12,7 @@ import {
   BookOpen,
   LogOut,
   X,
+  ScanFace,
 } from "lucide-react";
 import { useAuth } from "@/hooks/useAuth";
 import { useRouter } from "next/navigation";
@@ -26,6 +27,7 @@ const NAV_ITEMS = [
   { href: "/dashboard/attendance", icon: CalendarCheck,   label: "Attendance Records" },
   { href: "/dashboard/courses",    icon: BookOpen,        label: "Courses"            },
   { href: "/dashboard/sentiment",  icon: BrainCircuit,    label: "Sentiment Analysis" },
+  { href: "/dashboard/identify",   icon: ScanFace,        label: "Identify Student"   },
 ] as const;
 
 // ---------------------------------------------------------------------------
@@ -49,7 +51,7 @@ function NavItem({
       <motion.div
         whileHover={{ x: 3 }}
         whileTap={{ scale: 0.97 }}
-        className="relative flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium transition-colors duration-150"
+        className="cursor-pointer relative flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium transition-colors duration-150"
         style={{
           backgroundColor: active
             ? "color-mix(in srgb, var(--brand-500) 12%, transparent)"
@@ -130,7 +132,7 @@ export function Sidebar({ open, onClose }: SidebarProps) {
         {/* Mobile close button */}
         <button
           onClick={onClose}
-          className="ml-auto rounded-lg p-1.5 lg:hidden"
+          className="cursor-pointer ml-auto rounded-lg p-1.5 lg:hidden"
           style={{ color: "var(--text-muted)" }}
           aria-label="Close sidebar"
         >
@@ -191,7 +193,7 @@ export function Sidebar({ open, onClose }: SidebarProps) {
           whileHover={{ x: 2 }}
           whileTap={{ scale: 0.97 }}
           onClick={handleLogout}
-          className="flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium transition-colors"
+          className="cursor-pointer flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium transition-colors"
           style={{ color: "var(--danger-500)" }}
           onMouseEnter={(e) => {
             (e.currentTarget as HTMLElement).style.backgroundColor =

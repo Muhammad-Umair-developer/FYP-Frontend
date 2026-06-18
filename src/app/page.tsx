@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useRef, useId } from "react";
+import { useState, useEffect, useRef, useId } from "react";
 import { useRouter } from "next/navigation";
 import {
   motion,
@@ -125,6 +125,10 @@ function LoginCard() {
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const [success, setSuccess] = useState(false);
+
+  useEffect(() => {
+    router.prefetch("/dashboard");
+  }, [router]);
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -283,7 +287,7 @@ function LoginCard() {
               disabled={loading || success}
               whileHover={{ scale: loading || success ? 1 : 1.02 }}
               whileTap={{ scale: loading || success ? 1 : 0.97 }}
-              className="relative w-full overflow-hidden rounded-xl px-6 py-3.5 text-sm font-semibold text-white outline-none transition-all duration-200 disabled:cursor-not-allowed disabled:opacity-70"
+              className="cursor-pointer relative w-full overflow-hidden rounded-xl px-6 py-3.5 text-sm font-semibold text-white outline-none transition-all duration-200 disabled:cursor-not-allowed disabled:opacity-70"
               style={{
                 background: success
                   ? "var(--accent-500)"

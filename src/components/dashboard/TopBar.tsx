@@ -52,7 +52,7 @@ export function TopBar({ title, onMenuClick, serverStatus, onRetry }: TopBarProp
         {/* Mobile hamburger */}
         <button
           onClick={onMenuClick}
-          className="rounded-lg p-1.5 transition-colors lg:hidden"
+          className="cursor-pointer rounded-lg p-1.5 transition-colors lg:hidden"
           style={{ color: "var(--text-muted)" }}
           aria-label="Open navigation"
         >
@@ -93,7 +93,7 @@ export function TopBar({ title, onMenuClick, serverStatus, onRetry }: TopBarProp
               onClick={onRetry}
               whileTap={{ rotate: 180 }}
               transition={{ duration: 0.3 }}
-              className="ml-1"
+              className="cursor-pointer ml-1"
               aria-label="Retry connection"
             >
               <RefreshCw size={11} />

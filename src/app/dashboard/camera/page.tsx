@@ -8,6 +8,7 @@ import {
 } from "lucide-react";
 import { API_BASE_URL, WS_BASE_URL } from "@/config/api";
 import { useToast } from "@/components/ui/Toast";
+import type { Course } from "@/types/api";
 
 // Bounding box interface
 interface FaceMatch {
@@ -26,6 +27,11 @@ export default function CameraPage() {
   const [loadingClasses, setLoadingClasses] = useState(true);
   const [selectedClass, setSelectedClass] = useState<string>("");
 
+  // ── Course State ──
+  const [courses, setCourses] = useState<Course[]>([]);
+  const [selectedCourse, setSelectedCourse] = useState<Course | null>(null);
+  const [loadingCourses, setLoadingCourses] = useState(false);
+
   // ── Camera Streaming State ──
   const [streamActive, setStreamActive] = useState(false);
   const [connectionStatus, setConnectionStatus] = useState<"idle" | "connecting" | "connected" | "disconnected" | "error" | "stopped">("idle");
@@ -33,6 +39,41 @@ export default function CameraPage() {
   const [markedCount, setMarkedCount] = useState(0);
   const [matches, setMatches] = useState<FaceMatch[]>([]);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
+
+  // Fetch subjects when class changes
+  const fetchCourses = useCallback(async (className: string) => {
+    if (!className) {
+      setCourses([]);
+      setSelectedCourse(null);
+      return;
+    }
+    setLoadingCourses(true);
+    try {
+      const res = await fetch(`${API_BASE_URL}/api/subjects?class_name=${encodeURIComponent(className)}`, {
+        headers: {
+          "Authorization": `Bearer ${localStorage.getItem("fras_access_token")}`
+        }
+      });
+      if (res.ok) {
+        const data = await res.json();
+        setCourses(Array.isArray(data) ? data : []);
+        if (Array.isArray(data) && data.length > 0) {
+          setSelectedCourse(data[0]);
+        } else {
+          setSelectedCourse(null);
+        }
+      } else {
+        setCourses([]);
+        setSelectedCourse(null);
+      }
+    } catch (err) {
+      console.error("Failed to fetch courses for class:", err);
+      setCourses([]);
+      setSelectedCourse(null);
+    } finally {
+      setLoadingCourses(false);
+    }
+  }, []);
 
   // ── HTML Refs ──
   const videoRef = useRef<HTMLVideoElement>(null);
@@ -71,6 +112,7 @@ export default function CameraPage() {
         setClasses(classNames.sort());
         if (classNames.length > 0) {
           setSelectedClass(classNames[0]);
+          fetchCourses(classNames[0]);
         }
       } else {
         setClasses([]);
@@ -81,7 +123,7 @@ export default function CameraPage() {
     } finally {
       setLoadingClasses(false);
     }
-  }, []);
+  }, [fetchCourses]);
 
   useEffect(() => {
     fetchClasses();
@@ -189,7 +231,10 @@ export default function CameraPage() {
 
       // 2. Establish connection to Backend WebSocket
       const sessionId = Math.random().toString(36).substring(2, 15) + Math.random().toString(36).substring(2, 15);
-      const wsUrl = `${WS_BASE_URL}/ws/camera/${sessionId}?class_tag=${encodeURIComponent(selectedClass)}`;
+      let wsUrl = `${WS_BASE_URL}/ws/camera/${sessionId}?class_tag=${encodeURIComponent(selectedClass)}`;
+      if (selectedCourse) {
+        wsUrl += `&course_name=${encodeURIComponent(selectedCourse.course_name)}&course_code=${encodeURIComponent(selectedCourse.course_code)}`;
+      }
       
       const ws = new WebSocket(wsUrl);
       wsRef.current = ws;
@@ -390,8 +435,11 @@ export default function CameraPage() {
                     </label>
                     <select
                       value={selectedClass}
-                      onChange={(e) => setSelectedClass(e.target.value)}
-                      className="w-full rounded-xl border px-4 py-3 text-sm outline-none transition-all cursor-pointer font-semibold uppercase"
+                      onChange={(e) => {
+                        setSelectedClass(e.target.value);
+                        fetchCourses(e.target.value);
+                      }}
+                      className="cursor-pointer w-full rounded-xl border px-4 py-3 text-sm outline-none transition-all font-semibold uppercase"
                       style={{
                         backgroundColor: "var(--bg-elevated)",
                         borderColor: "var(--border-default)",
@@ -406,11 +454,55 @@ export default function CameraPage() {
                     </select>
                   </div>
 
+                  {/* Course Dropdown */}
+                  <div className="text-left space-y-1.5">
+                    <label className="text-xs font-semibold" style={{ color: "var(--text-secondary)" }}>
+                      Course / Subject
+                    </label>
+                    {loadingCourses ? (
+                      <div className="text-xs py-3.5 px-4 border rounded-xl" style={{ backgroundColor: "var(--bg-elevated)", borderColor: "var(--border-default)", color: "var(--text-muted)" }}>
+                        <RefreshCw className="animate-spin inline mr-2" size={12} />
+                        Loading courses for {selectedClass}…
+                      </div>
+                    ) : courses.length > 0 ? (
+                      <div className="relative">
+                        <select
+                          value={selectedCourse ? JSON.stringify(selectedCourse) : ""}
+                          onChange={(e) => {
+                            if (e.target.value) {
+                              setSelectedCourse(JSON.parse(e.target.value) as Course);
+                            } else {
+                              setSelectedCourse(null);
+                            }
+                          }}
+                          className="w-full appearance-none rounded-xl border pr-8 pl-4 py-3 text-sm outline-none transition-all cursor-pointer font-semibold"
+                          style={{
+                            backgroundColor: "var(--bg-elevated)",
+                            borderColor: "var(--border-default)",
+                            color: "var(--text-primary)",
+                          }}
+                        >
+                          {courses.map((c) => (
+                            <option key={`${c.course_code}-${c.course_name}`} value={JSON.stringify(c)}>
+                              {c.course_code} · {c.course_name}
+                            </option>
+                          ))}
+                        </select>
+                        <ChevronRight size={13} className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 rotate-90" style={{ color: "var(--text-muted)" }} />
+                      </div>
+                    ) : (
+                      <div className="text-xs text-red-500 py-3.5 px-4 rounded-xl border border-red-500/20 bg-red-500/5">
+                        No courses registered for class {selectedClass}. Go to <strong>Courses</strong> to add subjects first.
+                      </div>
+                    )}
+                  </div>
+
                   <motion.button
                     whileHover={{ scale: 1.02 }}
                     whileTap={{ scale: 0.98 }}
                     onClick={startStreaming}
-                    className="w-full flex items-center justify-center gap-2 rounded-xl py-3 text-sm font-semibold text-white shadow-md"
+                    disabled={!selectedCourse}
+                    className="w-full flex items-center justify-center gap-2 rounded-xl py-3 text-sm font-semibold text-white shadow-md disabled:opacity-50 disabled:cursor-not-allowed"
                     style={{
                       background: "linear-gradient(135deg, var(--brand-600), var(--brand-500))",
                       boxShadow: "0 4px 12px color-mix(in srgb, var(--brand-500) 30%, transparent)",
@@ -491,6 +583,20 @@ export default function CameraPage() {
                   <Users size={12} className="text-[var(--brand-400)]" />
                   Class: {selectedClass}
                 </div>
+
+                {/* Selected Course tag */}
+                {selectedCourse && (
+                  <div
+                    className="flex items-center gap-1.5 rounded-full px-3 py-1.5 text-[10px] font-bold uppercase tracking-widest text-white shadow backdrop-blur-md animate-pulse-once"
+                    style={{
+                      backgroundColor: "rgba(0, 0, 0, 0.65)",
+                      border: "1px solid rgba(255, 255, 255, 0.08)",
+                    }}
+                  >
+                    <Sparkles size={12} className="text-[var(--accent-400)]" />
+                    Course: {selectedCourse.course_code}
+                  </div>
+                )}
               </div>
 
               {/* Error HUD */}

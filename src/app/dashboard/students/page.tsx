@@ -4,7 +4,7 @@ import { useState, useEffect, useCallback, useRef, useId } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import {
   Users, Plus, Search, RefreshCw, AlertCircle,
-  BookOpen, ChevronRight, Camera, Trash2, X,
+  ChevronRight, Camera, Trash2, X, School,
   CheckCircle2, Upload, FolderPlus, Download, ScanFace,
 } from "lucide-react";
 import { Modal } from "@/components/ui/Modal";
@@ -342,7 +342,7 @@ function RegisterModal({
                 borderColor: "var(--border-subtle)",
               }}
             >
-              <BookOpen size={14} style={{ color: "var(--brand-500)" }} />
+              <School size={14} style={{ color: "var(--brand-500)" }} />
               <span className="text-sm font-semibold" style={{ color: "var(--brand-500)" }}>
                 {selectedClass}
               </span>
@@ -849,6 +849,12 @@ export default function StudentsPage() {
   const [classToDelete, setClassToDelete] = useState<string | null>(null);
   const [deletingClass, setDeletingClass] = useState(false);
   const [showIdentifyPanel, setShowIdentifyPanel] = useState(false);
+  
+  // ── Edit Profile state ──
+  const [isEditingProfile, setIsEditingProfile] = useState(false);
+  const [editStudentName, setEditStudentName] = useState("");
+  const [editStudentReg, setEditStudentReg] = useState("");
+  const [submittingEditStudent, setSubmittingEditStudent] = useState(false);
 
   // ─────────────────────────────────────────────────────────────────────────
   // Fetch available classes
@@ -935,6 +941,67 @@ export default function StudentsPage() {
       setDeleting(false);
     }
   }, [studentToDelete, selectedClass, activeStudentModal, request, toast, fetchStudents]);
+
+  // Sync edit student state when modal student changes
+  useEffect(() => {
+    if (activeStudentModal) {
+      setEditStudentName(activeStudentModal.name);
+      setEditStudentReg(activeStudentModal.reg_number);
+      setIsEditingProfile(false);
+    }
+  }, [activeStudentModal]);
+
+  const handleUpdateStudent = useCallback(async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!activeStudentModal || !selectedClass) return;
+
+    const nameVal = editStudentName.trim();
+    const regVal = editStudentReg.trim();
+
+    if (!nameVal || !regVal) {
+      toast("Name and Registration Number cannot be empty.", "error");
+      return;
+    }
+
+    setSubmittingEditStudent(true);
+    try {
+      const payload: Record<string, string> = {};
+      if (nameVal !== activeStudentModal.name) {
+        payload.name = nameVal;
+      }
+      if (regVal !== activeStudentModal.reg_number) {
+        payload.registration_number = regVal;
+      }
+
+      if (Object.keys(payload).length === 0) {
+        setIsEditingProfile(false);
+        return;
+      }
+
+      await request(API_ENDPOINTS.students.byId(activeStudentModal.student_id), {
+        method: "PATCH",
+        body: payload,
+        params: { class_name: selectedClass }
+      });
+
+      toast("✓ Student profile updated successfully", "success");
+      
+      const updatedStudent = {
+        ...activeStudentModal,
+        name: nameVal,
+        reg_number: regVal,
+        student_id: regVal
+      };
+      setActiveStudentModal(updatedStudent);
+      setIsEditingProfile(false);
+      
+      fetchStudents(selectedClass);
+    } catch (err) {
+      toast(err instanceof Error ? err.message : "Failed to update student profile", "error");
+    } finally {
+      setSubmittingEditStudent(false);
+    }
+  }, [activeStudentModal, editStudentName, editStudentReg, selectedClass, request, toast, fetchStudents]);
 
   function selectClass(name: string) {
     setSelectedClass(name);
@@ -1405,7 +1472,7 @@ export default function StudentsPage() {
                   <div className="flex items-center gap-2">
                     <button
                       onClick={() => setActiveStudentModal(student)}
-                      className="rounded-lg px-3 py-1.5 text-xs font-semibold transition-colors"
+                      className="cursor-pointer rounded-lg px-3 py-1.5 text-xs font-semibold transition-colors"
                       style={{ color: "var(--brand-500)" }}
                       onMouseEnter={(e) => {
                         (e.currentTarget as HTMLElement).style.backgroundColor =
@@ -1419,7 +1486,7 @@ export default function StudentsPage() {
                     </button>
                     <button
                       onClick={() => setStudentToDelete(student)}
-                      className="rounded-lg p-1.5 transition-colors"
+                      className="cursor-pointer rounded-lg p-1.5 transition-colors"
                       style={{ color: "var(--danger-500)" }}
                       onMouseEnter={(e) => {
                         (e.currentTarget as HTMLElement).style.backgroundColor =
@@ -1687,69 +1754,154 @@ export default function StudentsPage() {
               </span>
             </div>
 
-            {/* Profile Grid */}
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 rounded-2xl border p-4" style={{ backgroundColor: "var(--bg-surface)", borderColor: "var(--border-subtle)" }}>
-              <div>
-                <span className="text-[10px] font-semibold uppercase tracking-wider block" style={{ color: "var(--text-muted)" }}>
-                  Registration Number
-                </span>
-                <span className="text-sm font-semibold font-mono" style={{ color: "var(--text-secondary)" }}>
-                  {activeStudentModal.reg_number}
-                </span>
-              </div>
-              <div>
-                <span className="text-[10px] font-semibold uppercase tracking-wider block" style={{ color: "var(--text-muted)" }}>
-                  Assigned Class
-                </span>
-                <span className="text-sm font-semibold" style={{ color: "var(--text-secondary)" }}>
-                  {selectedClass || "N/A"}
-                </span>
-              </div>
-              <div className="sm:col-span-2">
-                <span className="text-[10px] font-semibold uppercase tracking-wider block" style={{ color: "var(--text-muted)" }}>
-                  Registration Date
-                </span>
-                <span className="text-xs font-semibold" style={{ color: "var(--text-secondary)" }}>
-                  {activeStudentModal.created_at
-                    ? new Date(activeStudentModal.created_at).toLocaleDateString("en-US", {
-                        year: "numeric",
-                        month: "long",
-                        day: "numeric",
-                        hour: "2-digit",
-                        minute: "2-digit",
-                      })
-                    : "N/A"}
-                </span>
-              </div>
-            </div>
+            {isEditingProfile ? (
+              <form onSubmit={handleUpdateStudent} className="space-y-4">
+                <div className="space-y-3">
+                  <div>
+                    <label className="mb-1.5 block text-xs font-semibold" style={{ color: "var(--text-secondary)" }}>
+                      Full Name
+                    </label>
+                    <input
+                      type="text"
+                      value={editStudentName}
+                      onChange={(e) => setEditStudentName(e.target.value)}
+                      className="w-full rounded-xl border px-3 py-2 text-sm outline-none transition-all"
+                      style={{
+                        backgroundColor: "var(--bg-elevated)",
+                        borderColor: "var(--border-default)",
+                        color: "var(--text-primary)",
+                      }}
+                      required
+                    />
+                  </div>
+                  <div>
+                    <label className="mb-1.5 block text-xs font-semibold" style={{ color: "var(--text-secondary)" }}>
+                      Registration Number
+                    </label>
+                    <input
+                      type="text"
+                      value={editStudentReg}
+                      onChange={(e) => setEditStudentReg(e.target.value.toUpperCase())}
+                      className="w-full rounded-xl border px-3 py-2 font-mono text-sm outline-none transition-all uppercase"
+                      style={{
+                        backgroundColor: "var(--bg-elevated)",
+                        borderColor: "var(--border-default)",
+                        color: "var(--text-primary)",
+                      }}
+                      required
+                    />
+                  </div>
+                </div>
 
-            {/* Actions */}
-            <div className="flex gap-3 pt-4 border-t" style={{ borderColor: "var(--border-subtle)" }}>
-              <button
-                type="button"
-                onClick={() => setActiveStudentModal(null)}
-                className="flex-1 rounded-xl border py-2.5 text-sm font-semibold transition-colors"
-                style={{
-                  borderColor: "var(--border-default)",
-                  color: "var(--text-secondary)",
-                  backgroundColor: "var(--bg-surface)",
-                }}
-              >
-                Close
-              </button>
-              <button
-                type="button"
-                onClick={() => setStudentToDelete(activeStudentModal)}
-                className="flex items-center justify-center gap-1.5 rounded-xl py-2.5 text-sm font-semibold text-white transition-opacity hover:opacity-90"
-                style={{
-                  backgroundColor: "var(--danger-500)",
-                  width: "140px",
-                }}
-              >
-                <Trash2 size={13} />
-                Delete Profile
-              </button>
-            </div>
+                <div className="flex gap-3 pt-4 border-t" style={{ borderColor: "var(--border-subtle)" }}>
+                  <button
+                    type="button"
+                    onClick={() => setIsEditingProfile(false)}
+                    disabled={submittingEditStudent}
+                    className="cursor-pointer flex-1 rounded-xl border py-2 text-sm font-semibold"
+                    style={{
+                      borderColor: "var(--border-default)",
+                      color: "var(--text-secondary)",
+                      backgroundColor: "var(--bg-surface)",
+                    }}
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    type="submit"
+                    disabled={submittingEditStudent}
+                    className="cursor-pointer flex-1 rounded-xl py-2 text-sm font-semibold text-white flex items-center justify-center gap-1.5"
+                    style={{
+                      background: "linear-gradient(135deg, var(--brand-600), var(--brand-500))",
+                    }}
+                  >
+                    {submittingEditStudent ? (
+                      <><RefreshCw size={12} className="animate-spin" /> Saving…</>
+                    ) : (
+                      "Save Profile"
+                    )}
+                  </button>
+                </div>
+              </form>
+            ) : (
+              <>
+                {/* Profile Grid */}
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 rounded-2xl border p-4" style={{ backgroundColor: "var(--bg-surface)", borderColor: "var(--border-subtle)" }}>
+                  <div>
+                    <span className="text-[10px] font-semibold uppercase tracking-wider block" style={{ color: "var(--text-muted)" }}>
+                      Registration Number
+                    </span>
+                    <span className="text-sm font-semibold font-mono" style={{ color: "var(--text-secondary)" }}>
+                      {activeStudentModal.reg_number}
+                    </span>
+                  </div>
+                  <div>
+                    <span className="text-[10px] font-semibold uppercase tracking-wider block" style={{ color: "var(--text-muted)" }}>
+                      Assigned Class
+                    </span>
+                    <span className="text-sm font-semibold" style={{ color: "var(--text-secondary)" }}>
+                      {selectedClass || "N/A"}
+                    </span>
+                  </div>
+                  <div className="sm:col-span-2">
+                    <span className="text-[10px] font-semibold uppercase tracking-wider block" style={{ color: "var(--text-muted)" }}>
+                      Registration Date
+                    </span>
+                    <span className="text-xs font-semibold" style={{ color: "var(--text-secondary)" }}>
+                      {activeStudentModal.created_at
+                        ? new Date(activeStudentModal.created_at).toLocaleDateString("en-US", {
+                            year: "numeric",
+                            month: "long",
+                            day: "numeric",
+                            hour: "2-digit",
+                            minute: "2-digit",
+                          })
+                        : "N/A"}
+                    </span>
+                  </div>
+                </div>
+
+                {/* Actions */}
+                <div className="flex gap-3 pt-4 border-t" style={{ borderColor: "var(--border-subtle)" }}>
+                  <button
+                    type="button"
+                    onClick={() => setActiveStudentModal(null)}
+                    className="cursor-pointer flex-1 rounded-xl border py-2.5 text-sm font-semibold transition-colors"
+                    style={{
+                      borderColor: "var(--border-default)",
+                      color: "var(--text-secondary)",
+                      backgroundColor: "var(--bg-surface)",
+                    }}
+                  >
+                    Close
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setIsEditingProfile(true)}
+                    className="cursor-pointer flex-1 rounded-xl border py-2.5 text-sm font-semibold transition-colors"
+                    style={{
+                      borderColor: "var(--brand-500)",
+                      color: "var(--brand-500)",
+                      backgroundColor: "var(--bg-surface)",
+                    }}
+                  >
+                    Edit Profile
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setStudentToDelete(activeStudentModal)}
+                    className="cursor-pointer flex items-center justify-center gap-1.5 rounded-xl py-2.5 text-sm font-semibold text-white transition-opacity hover:opacity-90"
+                    style={{
+                      backgroundColor: "var(--danger-500)",
+                      width: "120px",
+                    }}
+                  >
+                    <Trash2 size={13} />
+                    Delete
+                  </button>
+                </div>
+              </>
+            )}
           </div>
         )}
       </Modal>
