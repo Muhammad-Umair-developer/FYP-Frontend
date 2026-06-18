@@ -61,6 +61,8 @@ export interface AttendanceRecord {
   status: AttendanceStatus;
   confidence: number;
   class_name?: string;
+  course_name?: string;
+  course_code?: string;
 }
 
 export interface AttendanceListResponse {
@@ -105,6 +107,31 @@ export interface MarkFromImageResponse {
   results: FaceMatch[];
   processed_by: string;
   timestamp: string;
+}
+
+// --------------- Subjects / Courses ---------------
+export interface Course {
+  course_name: string;
+  course_code: string;
+}
+
+export type DegreeEnum = "BSCS" | "BSSE" | "BSAI";
+
+export interface SubjectCreatePayload {
+  degree: DegreeEnum;
+  semester: number;
+  course_name: string;
+  course_code: string;
+}
+
+// --------------- Student Identify ---------------
+export interface IdentifyResponse {
+  name: string;
+  student_id: string;
+  class_name?: string;
+  reg_number?: string;
+  confidence?: number;
+  message?: string;
 }
 
 // --------------- Classes ---------------

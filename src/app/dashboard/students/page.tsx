@@ -5,14 +5,14 @@ import { motion, AnimatePresence } from "framer-motion";
 import {
   Users, Plus, Search, RefreshCw, AlertCircle,
   BookOpen, ChevronRight, Camera, Trash2, X,
-  CheckCircle2, Upload, FolderPlus, Download,
+  CheckCircle2, Upload, FolderPlus, Download, ScanFace,
 } from "lucide-react";
 import { Modal } from "@/components/ui/Modal";
 import { useToast } from "@/components/ui/Toast";
 import { useApiClient } from "@/hooks/useApiClient";
 import { getStoredToken } from "@/hooks/useAuth";
 import { API_ENDPOINTS, API_BASE_URL } from "@/config/api";
-import type { Student, StudentsListResponse, StudentRegisterResponse, AttendanceRecord, AttendanceListResponse } from "@/types/api";
+import type { Student, StudentsListResponse, StudentRegisterResponse, AttendanceRecord, AttendanceListResponse, IdentifyResponse } from "@/types/api";
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Animation helpers
@@ -568,6 +568,256 @@ function DeleteClassModal({
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
+// IdentifyPanel — upload one image and call /students/identify
+// ─────────────────────────────────────────────────────────────────────────────
+function IdentifyPanel({
+  isOpen,
+  onClose,
+}: {
+  isOpen: boolean;
+  onClose: () => void;
+}) {
+  const { request } = useApiClient();
+  const { toast } = useToast();
+  const fileRef = useRef<HTMLInputElement>(null);
+
+  const [file, setFile] = useState<File | null>(null);
+  const [preview, setPreview] = useState<string | null>(null);
+  const [result, setResult] = useState<IdentifyResponse | null>(null);
+  const [identifying, setIdentifying] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (!isOpen) {
+      setFile(null);
+      setPreview(null);
+      setResult(null);
+      setError(null);
+    }
+  }, [isOpen]);
+
+  function handleFile(f: File | null) {
+    setFile(f);
+    setResult(null);
+    setError(null);
+    if (f) setPreview(URL.createObjectURL(f));
+    else setPreview(null);
+  }
+
+  async function handleIdentify() {
+    if (!file) return;
+    setIdentifying(true);
+    setError(null);
+    setResult(null);
+    try {
+      const fd = new FormData();
+      fd.append("file", file, file.name);
+      const data = await request<IdentifyResponse>(API_ENDPOINTS.students.identify, {
+        method: "POST",
+        body: fd,
+      });
+      setResult(data);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Identification failed");
+    } finally {
+      setIdentifying(false);
+    }
+  }
+
+  return (
+    <AnimatePresence>
+      {isOpen && (
+        <div className="fixed inset-0 z-[100] flex items-center justify-center p-4">
+          <motion.div
+            key="backdrop"
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            transition={{ duration: 0.2 }}
+            className="absolute inset-0"
+            style={{ backgroundColor: "rgba(0,0,0,0.6)", backdropFilter: "blur(4px)" }}
+            onClick={onClose}
+          />
+          <motion.div
+            key="panel"
+            initial={{ opacity: 0, scale: 0.95, y: 10 }}
+            animate={{ opacity: 1, scale: 1, y: 0 }}
+            exit={{ opacity: 0, scale: 0.95, y: 10 }}
+            transition={{ type: "spring", stiffness: 380, damping: 28 }}
+            className="relative z-10 w-full max-w-md overflow-hidden rounded-3xl border"
+            style={{
+              backgroundColor: "var(--bg-surface)",
+              borderColor: "var(--border-subtle)",
+              boxShadow: "var(--shadow-xl)",
+            }}
+          >
+            {/* Header */}
+            <div
+              className="flex items-center justify-between border-b px-6 py-4"
+              style={{ borderColor: "var(--border-subtle)" }}
+            >
+              <div className="flex items-center gap-2.5">
+                <div
+                  className="flex h-9 w-9 items-center justify-center rounded-xl"
+                  style={{ backgroundColor: "color-mix(in srgb, var(--brand-500) 12%, transparent)", color: "var(--brand-500)" }}
+                >
+                  <ScanFace size={18} />
+                </div>
+                <div>
+                  <p className="text-sm font-bold" style={{ color: "var(--text-primary)" }}>Identify Student</p>
+                  <p className="text-xs" style={{ color: "var(--text-muted)" }}>Upload a face photo to find the student</p>
+                </div>
+              </div>
+              <button
+                onClick={onClose}
+                className="cursor-pointer rounded-lg p-1.5"
+                style={{ color: "var(--text-muted)" }}
+              >
+                <X size={15} />
+              </button>
+            </div>
+
+            <div className="p-6 space-y-5">
+              {/* Upload slot */}
+              <div>
+                <label className="mb-1.5 block text-xs font-semibold" style={{ color: "var(--text-secondary)" }}>
+                  Face Photo
+                </label>
+                <motion.div
+                  whileHover={{ scale: 1.01 }}
+                  whileTap={{ scale: 0.99 }}
+                  onClick={() => !file && fileRef.current?.click()}
+                  className="relative flex h-40 cursor-pointer items-center justify-center overflow-hidden rounded-2xl border-2 border-dashed transition-colors"
+                  style={{
+                    borderColor: file ? "var(--brand-500)" : "var(--border-default)",
+                    backgroundColor: file ? "transparent" : "var(--bg-elevated)",
+                  }}
+                >
+                  {preview ? (
+                    <>
+                      {/* eslint-disable-next-line @next/next/no-img-element */}
+                      <img src={preview} alt="Preview" className="h-full w-full object-cover" />
+                      <button
+                        type="button"
+                        onClick={(e) => { e.stopPropagation(); handleFile(null); }}
+                        className="absolute right-2 top-2 flex h-6 w-6 cursor-pointer items-center justify-center rounded-full text-white shadow"
+                        style={{ backgroundColor: "var(--danger-500)" }}
+                      >
+                        <X size={11} />
+                      </button>
+                    </>
+                  ) : (
+                    <div className="flex flex-col items-center gap-2 text-center">
+                      <Camera size={28} style={{ color: "var(--text-muted)" }} />
+                      <p className="text-xs" style={{ color: "var(--text-muted)" }}>Click to upload face photo</p>
+                    </div>
+                  )}
+                </motion.div>
+                <input
+                  ref={fileRef}
+                  type="file"
+                  accept="image/jpeg,image/png,image/webp"
+                  className="hidden"
+                  onChange={(e) => { handleFile(e.target.files?.[0] ?? null); e.target.value = ""; }}
+                />
+              </div>
+
+              {/* Error */}
+              <AnimatePresence>
+                {error && (
+                  <motion.div
+                    key="err"
+                    initial={{ opacity: 0, height: 0 }}
+                    animate={{ opacity: 1, height: "auto" }}
+                    exit={{ opacity: 0, height: 0 }}
+                    className="flex items-start gap-2 overflow-hidden rounded-xl border px-4 py-3 text-xs"
+                    style={{
+                      backgroundColor: "color-mix(in srgb, var(--danger-500) 8%, transparent)",
+                      borderColor: "color-mix(in srgb, var(--danger-500) 25%, transparent)",
+                      color: "var(--danger-500)",
+                    }}
+                  >
+                    <AlertCircle size={13} className="mt-0.5 flex-shrink-0" />
+                    {error}
+                  </motion.div>
+                )}
+              </AnimatePresence>
+
+              {/* Result card */}
+              <AnimatePresence>
+                {result && (
+                  <motion.div
+                    key="result"
+                    initial={{ opacity: 0, y: 10 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    exit={{ opacity: 0 }}
+                    className="rounded-2xl border p-4 space-y-2"
+                    style={{
+                      backgroundColor: "color-mix(in srgb, var(--accent-500) 6%, transparent)",
+                      borderColor: "color-mix(in srgb, var(--accent-500) 25%, transparent)",
+                    }}
+                  >
+                    <div className="flex items-center gap-2 text-xs font-semibold" style={{ color: "var(--accent-500)" }}>
+                      <CheckCircle2 size={14} /> Student Identified
+                    </div>
+                    <div className="grid grid-cols-2 gap-x-4 gap-y-1 text-xs" style={{ color: "var(--text-secondary)" }}>
+                      <span className="font-semibold" style={{ color: "var(--text-muted)" }}>Name</span>
+                      <span className="font-semibold" style={{ color: "var(--text-primary)" }}>{result.name}</span>
+                      {result.reg_number && <>
+                        <span className="font-semibold" style={{ color: "var(--text-muted)" }}>Reg No.</span>
+                        <span className="font-mono" style={{ color: "var(--text-secondary)" }}>{result.reg_number}</span>
+                      </>}
+                      {result.class_name && <>
+                        <span className="font-semibold" style={{ color: "var(--text-muted)" }}>Class</span>
+                        <span style={{ color: "var(--text-secondary)" }}>{result.class_name}</span>
+                      </>}
+                      {result.confidence != null && <>
+                        <span className="font-semibold" style={{ color: "var(--text-muted)" }}>Confidence</span>
+                        <span style={{ color: "var(--text-secondary)" }}>{Math.round(result.confidence * 100)}%</span>
+                      </>}
+                    </div>
+                  </motion.div>
+                )}
+              </AnimatePresence>
+
+              {/* Action buttons */}
+              <div className="flex gap-3 border-t pt-4" style={{ borderColor: "var(--border-subtle)" }}>
+                <button
+                  type="button"
+                  onClick={onClose}
+                  className="cursor-pointer flex-1 rounded-xl border py-3 text-sm font-semibold"
+                  style={{ borderColor: "var(--border-default)", color: "var(--text-secondary)", backgroundColor: "var(--bg-surface)" }}
+                >
+                  Close
+                </button>
+                <motion.button
+                  type="button"
+                  disabled={!file || identifying}
+                  whileHover={{ scale: !file || identifying ? 1 : 1.02 }}
+                  whileTap={{ scale: !file || identifying ? 1 : 0.97 }}
+                  onClick={handleIdentify}
+                  className="cursor-pointer flex flex-1 items-center justify-center gap-2 rounded-xl py-3 text-sm font-semibold text-white disabled:opacity-50"
+                  style={{
+                    background: "linear-gradient(135deg, var(--brand-600), var(--brand-500))",
+                    boxShadow: "0 4px 12px color-mix(in srgb, var(--brand-500) 30%, transparent)",
+                  }}
+                >
+                  {identifying ? (
+                    <><RefreshCw size={14} className="animate-spin" /> Identifying…</>
+                  ) : (
+                    <><ScanFace size={14} /> Identify</>
+                  )}
+                </motion.button>
+              </div>
+            </div>
+          </motion.div>
+        </div>
+      )}
+    </AnimatePresence>
+  );
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
 // Main page
 // ─────────────────────────────────────────────────────────────────────────────
 export default function StudentsPage() {
@@ -598,6 +848,7 @@ export default function StudentsPage() {
   const [deleting, setDeleting] = useState(false);
   const [classToDelete, setClassToDelete] = useState<string | null>(null);
   const [deletingClass, setDeletingClass] = useState(false);
+  const [showIdentifyPanel, setShowIdentifyPanel] = useState(false);
 
   // ─────────────────────────────────────────────────────────────────────────
   // Fetch available classes
@@ -1218,7 +1469,7 @@ export default function StudentsPage() {
         <div className="flex gap-2 flex-wrap sm:flex-nowrap">
           <button
             onClick={() => setClassToDelete(selectedClass)}
-            className="flex items-center gap-1.5 rounded-xl border px-4 py-2 text-xs font-semibold text-red-500 hover:bg-red-50/10 border-red-500/20 transition-all"
+            className="cursor-pointer flex items-center gap-1.5 rounded-xl border px-4 py-2 text-xs font-semibold text-red-500 hover:bg-red-50/10 border-red-500/20 transition-all"
           >
             <Trash2 size={13} />
             Delete Class
@@ -1226,7 +1477,7 @@ export default function StudentsPage() {
           <button
             disabled={downloadingReport}
             onClick={handleDownloadReport}
-            className="flex items-center gap-2 rounded-xl border px-4 py-2 text-xs font-semibold disabled:opacity-50"
+            className="cursor-pointer flex items-center gap-2 rounded-xl border px-4 py-2 text-xs font-semibold disabled:opacity-50"
             style={{ borderColor: "var(--border-default)", color: "var(--text-secondary)", backgroundColor: "var(--bg-surface)" }}
           >
             {downloadingReport ? (
@@ -1237,8 +1488,16 @@ export default function StudentsPage() {
             Download Attendance Report
           </button>
           <button
+            onClick={() => setShowIdentifyPanel(true)}
+            className="cursor-pointer flex items-center gap-2 rounded-xl border px-4 py-2 text-xs font-semibold transition-colors"
+            style={{ borderColor: "color-mix(in srgb, var(--brand-500) 30%, transparent)", color: "var(--brand-500)", backgroundColor: "color-mix(in srgb, var(--brand-500) 6%, transparent)" }}
+          >
+            <ScanFace size={13} />
+            Identify Student
+          </button>
+          <button
             onClick={() => fetchStudents(selectedClass)}
-            className="flex items-center gap-2 rounded-xl border px-4 py-2 text-xs font-semibold"
+            className="cursor-pointer flex items-center gap-2 rounded-xl border px-4 py-2 text-xs font-semibold"
             style={{ borderColor: "var(--border-default)", color: "var(--text-secondary)", backgroundColor: "var(--bg-surface)" }}
           >
             <RefreshCw size={13} className={loadingStudents ? "animate-spin" : ""} />
@@ -1248,7 +1507,7 @@ export default function StudentsPage() {
             whileHover={{ scale: 1.03 }}
             whileTap={{ scale: 0.97 }}
             onClick={() => setShowRegisterModal(true)}
-            className="flex items-center gap-2 rounded-xl px-5 py-2.5 text-sm font-semibold text-white shadow-md"
+            className="cursor-pointer flex items-center gap-2 rounded-xl px-5 py-2.5 text-sm font-semibold text-white shadow-md"
             style={{
               background: "linear-gradient(135deg, var(--brand-600), var(--brand-500))",
               boxShadow: "0 4px 12px color-mix(in srgb, var(--brand-500) 30%, transparent)",
@@ -1576,6 +1835,12 @@ export default function StudentsPage() {
         classNameToDelete={classToDelete ?? ""}
         onConfirm={handleDeleteClassConfirm}
         isDeleting={deletingClass}
+      />
+
+      {/* Student Identification Panel */}
+      <IdentifyPanel
+        isOpen={showIdentifyPanel}
+        onClose={() => setShowIdentifyPanel(false)}
       />
     </div>
   );

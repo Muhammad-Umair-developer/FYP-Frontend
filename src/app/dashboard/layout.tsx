@@ -15,6 +15,7 @@ const PAGE_TITLES: Record<string, string> = {
   "/dashboard/camera":     "Live Camera",
   "/dashboard/students":   "Student Management",
   "/dashboard/attendance": "Attendance Records",
+  "/dashboard/courses":    "Course Management",
   "/dashboard/sentiment":  "Sentiment Analysis",
 };
 

@@ -9,6 +9,7 @@ import {
   Users,
   CalendarCheck,
   BrainCircuit,
+  BookOpen,
   LogOut,
   X,
 } from "lucide-react";
@@ -23,6 +24,7 @@ const NAV_ITEMS = [
   { href: "/dashboard/camera",     icon: Camera,          label: "Live Camera"        },
   { href: "/dashboard/students",   icon: Users,           label: "Student Management" },
   { href: "/dashboard/attendance", icon: CalendarCheck,   label: "Attendance Records" },
+  { href: "/dashboard/courses",    icon: BookOpen,        label: "Courses"            },
   { href: "/dashboard/sentiment",  icon: BrainCircuit,    label: "Sentiment Analysis" },
 ] as const;
 

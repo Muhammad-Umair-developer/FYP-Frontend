@@ -26,6 +26,7 @@ export const API_ENDPOINTS = {
     register: `${API_BASE_URL}/students/register`,
     enroll:   `${API_BASE_URL}/students/enroll`,
     searchByName: `${API_BASE_URL}/students/search/by-name`,
+    identify: `${API_BASE_URL}/students/identify`,
     /** Pass studentId to get /students/:id */
     byId: (studentId: string) => `${API_BASE_URL}/students/${studentId}`,
   },
@@ -44,6 +45,14 @@ export const API_ENDPOINTS = {
     create: `${API_BASE_URL}/api/classes/create`,
     delete: (className: string) => `${API_BASE_URL}/classes/${className}`,
     exportAttendance: (className: string) => `${API_BASE_URL}/classes/${className}/export-attendance`,
+  },
+
+  // --- Subjects / Courses ---
+  subjects: {
+    list:   `${API_BASE_URL}/api/subjects`,
+    create: `${API_BASE_URL}/api/subjects/create`,
+    updateName: `${API_BASE_URL}/api/subjects/update-name`,
+    delete: `${API_BASE_URL}/api/subjects`,
   },
 
   // --- Camera (Jinja-rendered page, not a JSON API) ---
