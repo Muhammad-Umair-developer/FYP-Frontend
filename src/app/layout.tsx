@@ -25,7 +25,7 @@ export const metadata: Metadata = {
     template: "%s | FRAS",
   },
   description:
-    "AI-powered, real-time facial recognition attendance management system with class-isolated tracking and sentiment analysis.",
+    "AI-powered, real-time facial recognition attendance management system with class-isolated tracking and attendance tracking by subject.",
   keywords: [
     "face recognition",
     "attendance system",

@@ -38,7 +38,9 @@ export default function DashboardLayout({
     }
   }, [router]);
 
-  if (!mounted || !isAuthenticated()) return null;
+  const isAuth = typeof window !== "undefined" ? isAuthenticated() : false;
+
+  if (!mounted || !isAuth) return null;
 
   const title = PAGE_TITLES[pathname] ?? "Dashboard";
 

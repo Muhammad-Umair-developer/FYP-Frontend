@@ -4,7 +4,7 @@ import { useState, useEffect, useCallback, useId, useRef } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import {
   BookOpen, Plus, RefreshCw, AlertCircle, Trash2, X,
-  ChevronDown, GraduationCap, Tag, Search, CheckCircle2,
+  ChevronDown, GraduationCap, Tag, Search, CheckCircle2, Edit,
 } from "lucide-react";
 import { useToast } from "@/components/ui/Toast";
 import { useApiClient } from "@/hooks/useApiClient";
@@ -115,6 +115,221 @@ function DeleteCourseModal({
                 </motion.button>
               </div>
             </div>
+          </motion.div>
+        </div>
+      )}
+    </AnimatePresence>
+  );
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// UpdateCourseModal
+// ─────────────────────────────────────────────────────────────────────────────
+function UpdateCourseModal({
+  isOpen,
+  onClose,
+  course,
+  degree,
+  semester,
+  onSuccess,
+}: {
+  isOpen: boolean;
+  onClose: () => void;
+  course: Course | null;
+  degree: string;
+  semester: number;
+  onSuccess: () => void;
+}) {
+  const { request } = useApiClient();
+  const { toast } = useToast();
+  const inputId = useId();
+
+  const [newName, setNewName] = useState("");
+  const [submitting, setSubmitting] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  // Sync newName when modal opens or course changes
+  useEffect(() => {
+    if (isOpen && course) {
+      setNewName(course.course_name);
+      setError(null);
+    }
+  }, [isOpen, course]);
+
+  async function handleSubmit(e: React.FormEvent) {
+    e.preventDefault();
+    setError(null);
+
+    const trimmed = newName.trim();
+    if (!trimmed) {
+      setError("Course name cannot be empty.");
+      return;
+    }
+    if (course && trimmed === course.course_name) {
+      onClose();
+      return;
+    }
+
+    setSubmitting(true);
+    try {
+      if (!course) return;
+      await request(API_ENDPOINTS.subjects.updateName, {
+        method: "PATCH",
+        params: {
+          degree,
+          semester,
+          old_course_name: course.course_name,
+          new_course_name: trimmed,
+        },
+      });
+      toast(`✓ Course renamed to "${trimmed}" successfully`, "success");
+      onSuccess();
+      onClose();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Failed to update course name");
+    } finally {
+      setSubmitting(false);
+    }
+  }
+
+  return (
+    <AnimatePresence>
+      {isOpen && course && (
+        <div className="fixed inset-0 z-[100] flex items-center justify-center p-4">
+          <motion.div
+            key="backdrop"
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            transition={{ duration: 0.2 }}
+            className="absolute inset-0"
+            style={{ backgroundColor: "rgba(0,0,0,0.6)", backdropFilter: "blur(4px)" }}
+            onClick={onClose}
+          />
+          <motion.div
+            key="modal"
+            initial={{ opacity: 0, scale: 0.95 }}
+            animate={{ opacity: 1, scale: 1 }}
+            exit={{ opacity: 0, scale: 0.95 }}
+            transition={{ type: "spring", stiffness: 380, damping: 28 }}
+            className="relative z-10 w-full max-w-md overflow-hidden rounded-3xl border p-6"
+            style={{
+              backgroundColor: "var(--bg-surface)",
+              borderColor: "var(--border-subtle)",
+              boxShadow: "var(--shadow-xl)",
+            }}
+          >
+            <form onSubmit={handleSubmit} className="space-y-4">
+              <div className="flex items-center justify-between border-b pb-3" style={{ borderColor: "var(--border-subtle)" }}>
+                <h3 className="text-base font-bold" style={{ color: "var(--text-primary)" }}>
+                  Update Course Name
+                </h3>
+                <button
+                  type="button"
+                  onClick={onClose}
+                  className="cursor-pointer rounded-lg p-1 text-muted hover:bg-zinc-50/10 transition-colors"
+                  style={{ color: "var(--text-muted)" }}
+                >
+                  <X size={16} />
+                </button>
+              </div>
+
+              <div>
+                <label className="mb-1 block text-xs font-semibold" style={{ color: "var(--text-muted)" }}>
+                  Course Code (read-only)
+                </label>
+                <code
+                  className="inline-block rounded-lg px-2.5 py-1 font-mono text-xs font-semibold"
+                  style={{
+                    backgroundColor: "var(--bg-elevated)",
+                    color: "var(--brand-500)",
+                  }}
+                >
+                  {course.course_code}
+                </code>
+              </div>
+
+              <div>
+                <label
+                  htmlFor={inputId}
+                  className="mb-1.5 block text-xs font-semibold"
+                  style={{ color: "var(--text-secondary)" }}
+                >
+                  New Course Name
+                </label>
+                <input
+                  id={inputId}
+                  type="text"
+                  value={newName}
+                  onChange={(e) => setNewName(e.target.value)}
+                  className="w-full rounded-xl border px-4 py-3 text-sm outline-none transition-all"
+                  style={{
+                    backgroundColor: "var(--bg-elevated)",
+                    borderColor: "var(--border-default)",
+                    color: "var(--text-primary)",
+                  }}
+                  onFocus={(e) => {
+                    e.currentTarget.style.borderColor = "var(--brand-500)";
+                    e.currentTarget.style.boxShadow = "0 0 0 3px color-mix(in srgb, var(--brand-500) 15%, transparent)";
+                  }}
+                  onBlur={(e) => {
+                    e.currentTarget.style.borderColor = "var(--border-default)";
+                    e.currentTarget.style.boxShadow = "none";
+                  }}
+                  required
+                  autoFocus
+                />
+              </div>
+
+              <AnimatePresence>
+                {error && (
+                  <motion.div
+                    key="modal-error"
+                    initial={{ opacity: 0, height: 0 }}
+                    animate={{ opacity: 1, height: "auto" }}
+                    exit={{ opacity: 0, height: 0 }}
+                    className="flex items-start gap-2 overflow-hidden rounded-xl border px-4 py-3 text-xs"
+                    style={{
+                      backgroundColor: "color-mix(in srgb, var(--danger-500) 8%, transparent)",
+                      borderColor: "color-mix(in srgb, var(--danger-500) 25%, transparent)",
+                      color: "var(--danger-500)",
+                    }}
+                  >
+                    <AlertCircle size={13} className="mt-0.5 flex-shrink-0" />
+                    {error}
+                  </motion.div>
+                )}
+              </AnimatePresence>
+
+              <div className="flex gap-3 pt-3 border-t" style={{ borderColor: "var(--border-subtle)" }}>
+                <button
+                  type="button"
+                  onClick={onClose}
+                  disabled={submitting}
+                  className="cursor-pointer flex-1 rounded-xl border py-2.5 text-sm font-semibold transition-all hover:bg-zinc-50/10 disabled:opacity-50"
+                  style={{ borderColor: "var(--border-default)", color: "var(--text-secondary)", backgroundColor: "var(--bg-surface)" }}
+                >
+                  Cancel
+                </button>
+                <motion.button
+                  type="submit"
+                  disabled={submitting}
+                  whileHover={{ scale: submitting ? 1 : 1.02 }}
+                  whileTap={{ scale: submitting ? 1 : 0.97 }}
+                  className="cursor-pointer flex flex-1 items-center justify-center gap-2 rounded-xl py-2.5 text-sm font-semibold text-white disabled:opacity-60 hover:brightness-110 transition-all"
+                  style={{
+                    background: "linear-gradient(135deg, var(--brand-600), var(--brand-500))",
+                    boxShadow: "0 4px 12px color-mix(in srgb, var(--brand-500) 30%, transparent)",
+                  }}
+                >
+                  {submitting ? (
+                    <><RefreshCw size={13} className="animate-spin" /> Saving…</>
+                  ) : (
+                    "Save Changes"
+                  )}
+                </motion.button>
+              </div>
+            </form>
           </motion.div>
         </div>
       )}
@@ -250,6 +465,9 @@ export default function CoursesPage() {
   const [courseToDelete, setCourseToDelete] = useState<Course | null>(null);
   const [deleting, setDeleting] = useState(false);
 
+  // ── Edit/Update state ──
+  const [courseToEdit, setCourseToEdit] = useState<Course | null>(null);
+
   const nameId = useId();
   const codeId = useId();
 
@@ -355,13 +573,26 @@ export default function CoursesPage() {
         initial={{ opacity: 0, y: 14 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.4 }}
+        className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between"
       >
-        <h1 className="text-xl font-bold tracking-tight" style={{ color: "var(--text-primary)" }}>
-          Course Management
-        </h1>
-        <p className="mt-1 text-sm" style={{ color: "var(--text-muted)" }}>
-          Manage the subject catalogue for each degree programme and semester.
-        </p>
+        <div>
+          <h1 className="text-xl font-bold tracking-tight" style={{ color: "var(--text-primary)" }}>
+            Course Management
+          </h1>
+          <p className="mt-1 text-sm" style={{ color: "var(--text-muted)" }}>
+            Manage the subject catalogue for each degree programme and semester.
+          </p>
+        </div>
+        <div>
+          <button
+            onClick={() => setShowCreateForm((v) => !v)}
+            className="cursor-pointer flex items-center gap-2 rounded-xl px-4 py-2 text-xs font-semibold text-white shadow-sm hover:brightness-110 transition-all"
+            style={{ background: "linear-gradient(135deg, var(--brand-600), var(--brand-500))" }}
+          >
+            <Plus size={13} />
+            Add Course
+          </button>
+        </div>
       </motion.div>
 
       {/* ── Filters: Degree + Semester ── */}
@@ -369,28 +600,30 @@ export default function CoursesPage() {
         initial={{ opacity: 0, y: 14 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.4, delay: 0.05 }}
-        className="flex flex-wrap gap-3 items-center"
+        className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between"
       >
-        {/* Degree selector */}
-        <CustomDropdown
-          value={degree}
-          options={DEGREES}
-          onChange={(val) => setDegree(val as DegreeEnum)}
-          renderLabel={(val) => String(val)}
-        />
+        <div className="flex flex-wrap gap-3 items-center">
+          {/* Degree selector */}
+          <CustomDropdown
+            value={degree}
+            options={DEGREES}
+            onChange={(val) => setDegree(val as DegreeEnum)}
+            renderLabel={(val) => String(val)}
+          />
 
-        {/* Semester selector */}
-        <CustomDropdown
-          value={semester}
-          options={SEMESTERS}
-          onChange={(val) => setSemester(Number(val))}
-          renderLabel={(val) => `Semester ${val}`}
-        />
+          {/* Semester selector */}
+          <CustomDropdown
+            value={semester}
+            options={SEMESTERS}
+            onChange={(val) => setSemester(Number(val))}
+            renderLabel={(val) => `Semester ${val}`}
+          />
+        </div>
 
         {/* Search */}
         <div
-          className="flex flex-1 items-center gap-2 rounded-xl border px-3 py-2"
-          style={{ backgroundColor: "var(--bg-surface)", borderColor: "var(--border-default)", minWidth: 180 }}
+          className="flex items-center gap-2 rounded-xl border px-3 py-2 sm:max-w-xs w-full"
+          style={{ backgroundColor: "var(--bg-surface)", borderColor: "var(--border-default)" }}
         >
           <Search size={13} style={{ color: "var(--text-muted)" }} />
           <input
@@ -402,21 +635,11 @@ export default function CoursesPage() {
             style={{ color: "var(--text-primary)" }}
           />
           {searchQuery && (
-            <button onClick={() => setSearchQuery("")} className="cursor-pointer" style={{ color: "var(--text-muted)" }}>
+            <button onClick={() => setSearchQuery("")} className="cursor-pointer hover:opacity-80 transition-opacity" style={{ color: "var(--text-muted)" }}>
               <X size={12} />
             </button>
           )}
         </div>
-
-        {/* Add Course */}
-        <button
-          onClick={() => setShowCreateForm((v) => !v)}
-          className="cursor-pointer flex items-center gap-2 rounded-xl px-4 py-2 text-xs font-semibold text-white ml-auto sm:ml-0"
-          style={{ background: "linear-gradient(135deg, var(--brand-600), var(--brand-500))" }}
-        >
-          <Plus size={13} />
-          Add Course
-        </button>
       </motion.div>
 
       {/* ── Create form ── */}
@@ -710,21 +933,38 @@ export default function CoursesPage() {
                       </div>
                     </td>
                     <td className="px-5 py-4">
-                      <button
-                        onClick={() => setCourseToDelete(course)}
-                        title="Delete course"
-                        className="cursor-pointer rounded-lg p-1.5 transition-colors"
-                        style={{ color: "var(--danger-500)" }}
-                        onMouseEnter={(e) => {
-                          (e.currentTarget as HTMLElement).style.backgroundColor =
-                            "color-mix(in srgb, var(--danger-500) 10%, transparent)";
-                        }}
-                        onMouseLeave={(e) => {
-                          (e.currentTarget as HTMLElement).style.backgroundColor = "transparent";
-                        }}
-                      >
-                        <Trash2 size={14} />
-                      </button>
+                      <div className="flex items-center gap-2">
+                        <button
+                          onClick={() => setCourseToEdit(course)}
+                          title="Edit course"
+                          className="cursor-pointer rounded-lg p-1.5 transition-colors"
+                          style={{ color: "var(--brand-500)" }}
+                          onMouseEnter={(e) => {
+                            (e.currentTarget as HTMLElement).style.backgroundColor =
+                              "color-mix(in srgb, var(--brand-500) 10%, transparent)";
+                          }}
+                          onMouseLeave={(e) => {
+                            (e.currentTarget as HTMLElement).style.backgroundColor = "transparent";
+                          }}
+                        >
+                          <Edit size={14} />
+                        </button>
+                        <button
+                          onClick={() => setCourseToDelete(course)}
+                          title="Delete course"
+                          className="cursor-pointer rounded-lg p-1.5 transition-colors"
+                          style={{ color: "var(--danger-500)" }}
+                          onMouseEnter={(e) => {
+                            (e.currentTarget as HTMLElement).style.backgroundColor =
+                              "color-mix(in srgb, var(--danger-500) 10%, transparent)";
+                          }}
+                          onMouseLeave={(e) => {
+                            (e.currentTarget as HTMLElement).style.backgroundColor = "transparent";
+                          }}
+                        >
+                          <Trash2 size={14} />
+                        </button>
+                      </div>
                     </td>
                   </motion.tr>
                 ))}
@@ -743,6 +983,16 @@ export default function CoursesPage() {
         semester={semester}
         onConfirm={handleDeleteConfirm}
         isDeleting={deleting}
+      />
+
+      {/* ── Update Modal ── */}
+      <UpdateCourseModal
+        isOpen={courseToEdit !== null}
+        onClose={() => setCourseToEdit(null)}
+        course={courseToEdit}
+        degree={degree}
+        semester={semester}
+        onSuccess={fetchCourses}
       />
     </div>
   );

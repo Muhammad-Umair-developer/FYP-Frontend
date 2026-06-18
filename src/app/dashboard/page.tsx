@@ -187,7 +187,7 @@ export default function OverviewPage() {
       <section>
         <SectionHeader
           title="Analytics"
-          subtitle="Attendance trends and sentiment distribution"
+          subtitle="Attendance trends and attendance by subject"
         />
         <div className="grid grid-cols-1 gap-5">
           <AttendanceAreaChart data={attendanceTrend} />

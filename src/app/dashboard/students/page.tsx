@@ -69,7 +69,7 @@ function ImageSlot({
             <button
               type="button"
               onClick={(e) => { e.stopPropagation(); onChange(null); }}
-              className="absolute right-1 top-1 flex h-5 w-5 items-center justify-center rounded-full text-white shadow"
+              className="cursor-pointer absolute right-1 top-1 flex h-5 w-5 items-center justify-center rounded-full text-white shadow hover:brightness-110 transition-all"
               style={{ backgroundColor: "var(--danger-500)" }}
             >
               <X size={10} />
@@ -121,7 +121,7 @@ function ClassCard({
       whileHover={{ y: -3, scale: 1.02 }}
       whileTap={{ scale: 0.97 }}
       onClick={() => onSelect(name)}
-      className="flex items-center justify-between gap-3 rounded-2xl border p-4 text-left transition-all w-full"
+      className="cursor-pointer flex items-center justify-between gap-3 rounded-2xl border p-4 text-left transition-all w-full"
       style={{
         backgroundColor: "var(--bg-surface)",
         borderColor: "var(--border-subtle)",
@@ -172,7 +172,7 @@ function CourseCard({
       whileHover={{ y: -3, scale: 1.02 }}
       whileTap={{ scale: 0.97 }}
       onClick={() => onSelect(course)}
-      className="flex items-center justify-between gap-3 rounded-2xl border p-4 text-left transition-all w-full"
+      className="cursor-pointer flex items-center justify-between gap-3 rounded-2xl border p-4 text-left transition-all w-full"
       style={{
         backgroundColor: "var(--bg-surface)",
         borderColor: "var(--border-subtle)",
@@ -472,7 +472,7 @@ function RegisterModal({
             type="button"
             onClick={onClose}
             disabled={submitting}
-            className="flex-1 rounded-xl border py-3 text-sm font-semibold transition-colors disabled:opacity-50"
+            className="cursor-pointer flex-1 rounded-xl border py-3 text-sm font-semibold transition-all hover:bg-zinc-50/10 disabled:opacity-50"
             style={{
               borderColor: "var(--border-default)",
               color: "var(--text-secondary)",
@@ -486,7 +486,7 @@ function RegisterModal({
             disabled={submitting}
             whileHover={{ scale: submitting ? 1 : 1.02 }}
             whileTap={{ scale: submitting ? 1 : 0.97 }}
-            className="flex flex-1 items-center justify-center gap-2 rounded-xl py-3 text-sm font-semibold text-white disabled:opacity-60"
+            className="cursor-pointer flex flex-1 items-center justify-center gap-2 rounded-xl py-3 text-sm font-semibold text-white disabled:opacity-60 hover:brightness-110 transition-all"
             style={{
               background: "linear-gradient(135deg, var(--brand-600), var(--brand-500))",
               boxShadow: "0 4px 12px color-mix(in srgb, var(--brand-500) 30%, transparent)",
@@ -584,7 +584,7 @@ function DeleteClassModal({
                   type="button"
                   onClick={onClose}
                   disabled={isDeleting}
-                  className="flex-1 rounded-xl border py-2.5 text-sm font-semibold transition-colors disabled:opacity-50"
+                  className="cursor-pointer flex-1 rounded-xl border py-2.5 text-sm font-semibold transition-all hover:bg-zinc-50/10 disabled:opacity-50"
                   style={{
                     borderColor: "var(--border-default)",
                     color: "var(--text-secondary)",
@@ -599,7 +599,7 @@ function DeleteClassModal({
                   disabled={isDeleting}
                   whileHover={{ scale: isDeleting ? 1 : 1.02 }}
                   whileTap={{ scale: isDeleting ? 1 : 0.98 }}
-                  className="flex-1 items-center justify-center rounded-xl py-2.5 text-sm font-semibold text-white bg-red-600 hover:bg-red-700 disabled:opacity-60 transition-colors shadow-sm"
+                  className="cursor-pointer flex-1 items-center justify-center rounded-xl py-2.5 text-sm font-semibold text-white bg-red-600 hover:bg-red-700 disabled:opacity-60 transition-all shadow-sm"
                 >
                   {isDeleting ? (
                     <span className="flex items-center justify-center gap-2">
@@ -701,7 +701,7 @@ function DeleteAttendanceModal({
                   type="button"
                   onClick={onClose}
                   disabled={isDeleting}
-                  className="flex-1 rounded-xl border py-2.5 text-sm font-semibold transition-colors disabled:opacity-50"
+                  className="cursor-pointer flex-1 rounded-xl border py-2.5 text-sm font-semibold transition-all hover:bg-zinc-50/10 disabled:opacity-50"
                   style={{
                     borderColor: "var(--border-default)",
                     color: "var(--text-secondary)",
@@ -716,7 +716,7 @@ function DeleteAttendanceModal({
                   disabled={isDeleting}
                   whileHover={{ scale: isDeleting ? 1 : 1.02 }}
                   whileTap={{ scale: isDeleting ? 1 : 0.98 }}
-                  className="flex-1 items-center justify-center rounded-xl py-2.5 text-sm font-semibold text-white bg-red-600 hover:bg-red-700 disabled:opacity-60 transition-colors shadow-sm"
+                  className="cursor-pointer flex-1 items-center justify-center rounded-xl py-2.5 text-sm font-semibold text-white bg-red-600 hover:bg-red-700 disabled:opacity-60 transition-all shadow-sm"
                 >
                   {isDeleting ? (
                     <span className="flex items-center justify-center gap-2">
@@ -1115,40 +1115,52 @@ export default function StudentsPage() {
     });
   }, []);
 
-  const handleDownloadReport = useCallback(async () => {
+  const handleDownloadReport = useCallback(() => {
     if (!selectedClass) return;
     setDownloadingReport(true);
     try {
-      const token = getStoredToken();
-      const headers: Record<string, string> = {};
-      if (token) {
-        headers["Authorization"] = `Bearer ${token}`;
-      }
-      
-      const response = await fetch(API_ENDPOINTS.classes.exportAttendance(selectedClass), {
-        headers
+      const todayDateStr = new Date().toLocaleDateString('en-CA'); // "YYYY-MM-DD"
+
+      const excelData = students.map((s) => {
+        const row: Record<string, string> = {
+          "Registration Number": s.reg_number,
+          "Name": s.name,
+        };
+
+        // For each course, find if the student is Present, Late, or Absent
+        classCourses.forEach((course) => {
+          const attRecord = getStudentCourseRecord(s.student_id, attendanceRecords, course.course_code);
+          const columnName = `${course.course_name} (${course.course_code})`;
+          row[columnName] = attRecord ? attRecord.status : "Absent";
+        });
+
+        row["Date"] = todayDateStr;
+        return row;
       });
-      
-      if (!response.ok) {
-        throw new Error(`Failed to download report: ${response.statusText}`);
-      }
-      
-      const blob = await response.blob();
-      const url = window.URL.createObjectURL(blob);
-      const a = document.createElement('a');
-      a.href = url;
-      a.download = `attendance_${selectedClass}_${new Date().toISOString().split('T')[0]}.xlsx`;
-      document.body.appendChild(a);
-      a.click();
-      a.remove();
-      window.URL.revokeObjectURL(url);
+
+      const worksheet = XLSX.utils.json_to_sheet(excelData);
+      const workbook = XLSX.utils.book_new();
+      XLSX.utils.book_append_sheet(workbook, worksheet, "Attendance Report");
+
+      // Set column widths dynamically
+      const colWidths = [
+        { wch: 20 }, // Registration Number
+        { wch: 25 }, // Name
+        ...classCourses.map(() => ({ wch: 25 })), // Courses
+        { wch: 15 }  // Date
+      ];
+      worksheet["!cols"] = colWidths;
+
+      const filename = `attendance_${selectedClass}_${new Date().toISOString().split('T')[0]}.xlsx`;
+      XLSX.writeFile(workbook, filename);
+
       toast("✓ Attendance report downloaded successfully", "success");
     } catch (err) {
       toast(err instanceof Error ? err.message : "Failed to download report", "error");
     } finally {
       setDownloadingReport(false);
     }
-  }, [selectedClass, toast]);
+  }, [selectedClass, students, classCourses, attendanceRecords, getStudentCourseRecord, toast]);
 
   const handleDownloadCourseReport = useCallback(() => {
     if (!selectedClass || !selectedAttendanceCourse) return;
@@ -1288,7 +1300,7 @@ export default function StudentsPage() {
           <div>
             <button
               onClick={() => setShowCreateForm((v) => !v)}
-              className="flex items-center gap-2 rounded-xl px-4 py-2 text-xs font-semibold text-white shadow-sm transition-all"
+              className="cursor-pointer flex items-center gap-2 rounded-xl px-4 py-2 text-xs font-semibold text-white shadow-sm hover:brightness-110 transition-all"
               style={{ background: "linear-gradient(135deg, var(--brand-600), var(--brand-500))" }}
             >
               <FolderPlus size={13} />
@@ -1313,7 +1325,7 @@ export default function StudentsPage() {
                   key={degree}
                   type="button"
                   onClick={() => setSelectedDegree(degree)}
-                  className="relative px-4 py-1.5 text-xs font-semibold rounded-lg transition-all focus:outline-none"
+                  className="cursor-pointer relative px-4 py-1.5 text-xs font-semibold rounded-lg transition-all focus:outline-none hover:bg-zinc-50/5"
                   style={{
                     color: isActive ? "var(--brand-50)" : "var(--text-muted)",
                   }}
@@ -1353,6 +1365,7 @@ export default function StudentsPage() {
               <button
                 type="button"
                 onClick={() => setClassFilter("")}
+                className="cursor-pointer hover:opacity-80 transition-opacity"
                 style={{ color: "var(--text-muted)" }}
               >
                 <X size={12} />
@@ -1393,7 +1406,7 @@ export default function StudentsPage() {
                 <button
                   type="submit"
                   disabled={creatingClass || !newClassName.trim()}
-                  className="flex items-center gap-2 rounded-xl px-4 py-2 text-sm font-semibold text-white disabled:opacity-60"
+                  className="cursor-pointer flex items-center gap-2 rounded-xl px-4 py-2 text-sm font-semibold text-white disabled:opacity-60 hover:brightness-110 transition-all"
                   style={{ background: "linear-gradient(135deg, var(--brand-600), var(--brand-500))" }}
                 >
                   {creatingClass ? <RefreshCw size={13} className="animate-spin" /> : <Plus size={13} />}
@@ -1402,7 +1415,7 @@ export default function StudentsPage() {
                 <button
                   type="button"
                   onClick={() => setShowCreateForm(false)}
-                  className="flex items-center gap-2 rounded-xl border px-3 py-2 text-xs"
+                  className="cursor-pointer flex items-center gap-2 rounded-xl border px-3 py-2 text-xs hover:bg-zinc-50/10 transition-all"
                   style={{ borderColor: "var(--border-default)", color: "var(--text-muted)" }}
                 >
                   <X size={13} />
@@ -1769,7 +1782,7 @@ export default function StudentsPage() {
       >
         <div>
           <div className="flex items-center gap-2 text-xs mb-1" style={{ color: "var(--text-muted)" }}>
-            <button onClick={goBackToClasses} className="hover:underline">All Classes</button>
+            <button onClick={goBackToClasses} className="cursor-pointer hover:underline">All Classes</button>
             <ChevronRight size={12} />
             <span className="font-semibold" style={{ color: "var(--brand-500)" }}>{selectedClass}</span>
           </div>
@@ -1792,7 +1805,7 @@ export default function StudentsPage() {
           <button
             disabled={downloadingReport}
             onClick={handleDownloadReport}
-            className="cursor-pointer flex items-center gap-2 rounded-xl border px-4 py-2 text-xs font-semibold disabled:opacity-50"
+            className="cursor-pointer flex items-center gap-2 rounded-xl border px-4 py-2 text-xs font-semibold disabled:opacity-50 hover:bg-zinc-50/10 transition-all"
             style={{ borderColor: "var(--border-default)", color: "var(--text-secondary)", backgroundColor: "var(--bg-surface)" }}
           >
             {downloadingReport ? (
@@ -1808,7 +1821,7 @@ export default function StudentsPage() {
             whileHover={{ scale: 1.03 }}
             whileTap={{ scale: 0.97 }}
             onClick={() => setShowRegisterModal(true)}
-            className="cursor-pointer flex items-center gap-2 rounded-xl px-5 py-2.5 text-sm font-semibold text-white shadow-md"
+            className="cursor-pointer flex items-center gap-2 rounded-xl px-5 py-2.5 text-sm font-semibold text-white shadow-md hover:brightness-110 transition-all"
             style={{
               background: "linear-gradient(135deg, var(--brand-600), var(--brand-500))",
               boxShadow: "0 4px 12px color-mix(in srgb, var(--brand-500) 30%, transparent)",
@@ -1838,7 +1851,7 @@ export default function StudentsPage() {
           style={{ color: "var(--text-primary)" }}
         />
         {searchQuery && (
-          <button onClick={() => setSearchQuery("")} style={{ color: "var(--text-muted)" }}>
+          <button onClick={() => setSearchQuery("")} className="cursor-pointer hover:opacity-80 transition-opacity" style={{ color: "var(--text-muted)" }}>
             <X size={13} />
           </button>
         )}
@@ -1859,7 +1872,7 @@ export default function StudentsPage() {
           {studentsError}
           <button
             onClick={() => fetchStudents(selectedClass)}
-            className="ml-auto text-xs font-semibold underline"
+            className="cursor-pointer ml-auto text-xs font-semibold underline hover:opacity-80 transition-opacity"
           >
             Retry
           </button>
@@ -1902,7 +1915,7 @@ export default function StudentsPage() {
             {!searchQuery && (
               <button
                 onClick={() => setShowRegisterModal(true)}
-                className="mt-1 flex items-center gap-2 rounded-xl px-4 py-2 text-xs font-semibold text-white"
+                className="cursor-pointer mt-1 flex items-center gap-2 rounded-xl px-4 py-2 text-xs font-semibold text-white hover:brightness-110 transition-all"
                 style={{ background: "linear-gradient(135deg, var(--brand-600), var(--brand-500))" }}
               >
                 <Plus size={12} /> Register First Student
@@ -2158,7 +2171,7 @@ export default function StudentsPage() {
                   <button
                     type="button"
                     onClick={() => setActiveStudentModal(null)}
-                    className="cursor-pointer flex-1 rounded-xl border py-2.5 text-sm font-semibold transition-colors"
+                    className="cursor-pointer flex-1 rounded-xl border py-2.5 text-sm font-semibold hover:bg-zinc-50/10 transition-all"
                     style={{
                       borderColor: "var(--border-default)",
                       color: "var(--text-secondary)",
@@ -2170,7 +2183,7 @@ export default function StudentsPage() {
                   <button
                     type="button"
                     onClick={() => setIsEditingProfile(true)}
-                    className="cursor-pointer flex-1 rounded-xl border py-2.5 text-sm font-semibold transition-colors"
+                    className="cursor-pointer flex-1 rounded-xl border py-2.5 text-sm font-semibold hover:bg-zinc-50/5 transition-all"
                     style={{
                       borderColor: "var(--brand-500)",
                       color: "var(--brand-500)",
@@ -2234,7 +2247,7 @@ export default function StudentsPage() {
                 type="button"
                 disabled={deleting}
                 onClick={() => setStudentToDelete(null)}
-                className="flex-1 rounded-xl border py-2.5 text-sm font-semibold transition-colors disabled:opacity-50"
+                className="cursor-pointer flex-1 rounded-xl border py-2.5 text-sm font-semibold transition-all hover:bg-zinc-50/10 disabled:opacity-50"
                 style={{
                   borderColor: "var(--border-default)",
                   color: "var(--text-secondary)",
@@ -2249,7 +2262,7 @@ export default function StudentsPage() {
                 whileHover={{ scale: deleting ? 1 : 1.02 }}
                 whileTap={{ scale: deleting ? 1 : 0.97 }}
                 onClick={handleDeleteConfirm}
-                className="flex flex-1 items-center justify-center gap-2 rounded-xl py-2.5 text-sm font-semibold text-white disabled:opacity-60"
+                className="cursor-pointer flex flex-1 items-center justify-center gap-2 rounded-xl py-2.5 text-sm font-semibold text-white disabled:opacity-60 hover:brightness-110 transition-all"
                 style={{
                   backgroundColor: "var(--danger-500)",
                   boxShadow: "0 4px 12px color-mix(in srgb, var(--danger-500) 30%, transparent)",
@@ -2331,7 +2344,7 @@ export default function StudentsPage() {
                 <button
                   type="button"
                   onClick={() => setEditAttendanceStatus("Present")}
-                  className="flex flex-col items-center gap-2 rounded-2xl border p-3.5 transition-all text-center"
+                  className="cursor-pointer flex flex-col items-center gap-2 rounded-2xl border p-3.5 transition-all text-center hover:opacity-90"
                   style={{
                     backgroundColor: editAttendanceStatus === "Present" 
                       ? "color-mix(in srgb, var(--success-500, #10b981) 8%, var(--bg-surface))" 
@@ -2361,7 +2374,7 @@ export default function StudentsPage() {
                 <button
                   type="button"
                   onClick={() => setEditAttendanceStatus("Late")}
-                  className="flex flex-col items-center gap-2 rounded-2xl border p-3.5 transition-all text-center"
+                  className="cursor-pointer flex flex-col items-center gap-2 rounded-2xl border p-3.5 transition-all text-center hover:opacity-90"
                   style={{
                     backgroundColor: editAttendanceStatus === "Late" 
                       ? "color-mix(in srgb, var(--warning-500, #f59e0b) 8%, var(--bg-surface))" 
@@ -2391,7 +2404,7 @@ export default function StudentsPage() {
                 <button
                   type="button"
                   onClick={() => setEditAttendanceStatus("Absent")}
-                  className="flex flex-col items-center gap-2 rounded-2xl border p-3.5 transition-all text-center"
+                  className="cursor-pointer flex flex-col items-center gap-2 rounded-2xl border p-3.5 transition-all text-center hover:opacity-90"
                   style={{
                     backgroundColor: editAttendanceStatus === "Absent" 
                       ? "color-mix(in srgb, var(--danger-500, #ef4444) 8%, var(--bg-surface))" 
@@ -2425,7 +2438,7 @@ export default function StudentsPage() {
                 type="button"
                 onClick={() => setAttendanceEditStudent(null)}
                 disabled={submittingAttendanceEdit}
-                className="cursor-pointer flex-1 rounded-xl border py-2.5 text-sm font-semibold transition-colors disabled:opacity-50"
+                className="cursor-pointer flex-1 rounded-xl border py-2.5 text-sm font-semibold transition-all hover:bg-zinc-50/10 disabled:opacity-50"
                 style={{
                   borderColor: "var(--border-default)",
                   color: "var(--text-secondary)",
@@ -2438,7 +2451,7 @@ export default function StudentsPage() {
                 type="button"
                 onClick={() => handleSaveAttendanceEdit(attendanceEditStudent, editAttendanceStatus)}
                 disabled={submittingAttendanceEdit}
-                className="cursor-pointer flex-1 rounded-xl py-2.5 text-sm font-semibold text-white flex items-center justify-center gap-1.5"
+                className="cursor-pointer flex-1 rounded-xl py-2.5 text-sm font-semibold text-white flex items-center justify-center gap-1.5 hover:brightness-110 transition-all"
                 style={{
                   background: "linear-gradient(135deg, var(--brand-600), var(--brand-500))",
                   boxShadow: "0 4px 12px color-mix(in srgb, var(--brand-500) 30%, transparent)",

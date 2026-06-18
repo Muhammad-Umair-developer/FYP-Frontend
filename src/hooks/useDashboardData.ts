@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useCallback } from "react";
 import { API_ENDPOINTS, ApiError } from "@/config/api";
-import { getStoredToken } from "@/hooks/useAuth";
+import { getStoredToken, clearToken } from "@/hooks/useAuth";
 import type { StudentsListResponse, AttendanceListResponse } from "@/types/api";
 
 // ---------------------------------------------------------------------------
@@ -107,27 +107,31 @@ export function useDashboardData(): DashboardData {
     const token = getStoredToken() ?? undefined;
 
     try {
-      // ── 1. Dashboard Stats ──────────────────────────────────────────────
-      // API: GET /dashboard/stats
-      const statsRes = await fetch(
-        API_ENDPOINTS.dashboardStats,
-        { headers: token ? { Authorization: `Bearer ${token}` } : {} }
-      );
-      const statsData = statsRes.ok
-        ? await statsRes.json() as { total_students: number; active_classes: number }
-        : { total_students: 0, active_classes: 0 };
-
-      // ── 2. Today's attendance ──────────────────────────────────────────
-      // API: GET /attendance/?date=YYYY-MM-DD&limit=200
-      // We fetch all of today's records and tally Present vs total.
       const today = toISODate(new Date());
-      const attendanceRes = await fetch(
-        `${API_ENDPOINTS.attendance.list}?date=${today}&limit=200`,
-        { headers: token ? { Authorization: `Bearer ${token}` } : {} }
-      );
-      const attendanceData: AttendanceListResponse = attendanceRes.ok
-        ? await attendanceRes.json()
-        : { records: [], count: 0 };
+      const headers: Record<string, string> = token ? { Authorization: `Bearer ${token}` } : {};
+
+      // Fetch Stats and Today's Attendance in parallel
+      const [statsRes, attendanceRes] = await Promise.all([
+        fetch(API_ENDPOINTS.dashboardStats, { headers }),
+        fetch(`${API_ENDPOINTS.attendance.list}?date=${today}&limit=200`, { headers })
+      ]);
+
+      if (statsRes.status === 401 || attendanceRes.status === 401) {
+        clearToken();
+        if (typeof window !== "undefined") {
+          window.location.href = "/";
+        }
+        return;
+      }
+
+      const [statsData, attendanceData] = await Promise.all([
+        statsRes.ok
+          ? statsRes.json() as Promise<{ total_students: number; active_classes: number }>
+          : Promise.resolve({ total_students: 0, active_classes: 0 }),
+        attendanceRes.ok
+          ? attendanceRes.json() as Promise<AttendanceListResponse>
+          : Promise.resolve({ records: [], count: 0 })
+      ]);
 
       const presentToday = attendanceData.records.filter(
         (r) => r.status === "Present"
