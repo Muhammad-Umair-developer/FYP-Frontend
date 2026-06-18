@@ -13,11 +13,14 @@ import {
   Hash,
   School,
   Sparkles,
+  Download,
 } from "lucide-react";
 import { useToast } from "@/components/ui/Toast";
 import { useApiClient } from "@/hooks/useApiClient";
 import { API_ENDPOINTS } from "@/config/api";
-import type { IdentifyResponse } from "@/types/api";
+import type { IdentifyResponse, Course, AttendanceListResponse } from "@/types/api";
+import { jsPDF } from "jspdf";
+import autoTable from "jspdf-autotable";
 
 interface IdentifyResult {
   name: string;
@@ -39,6 +42,7 @@ export default function IdentifyPage() {
   const [identifying, setIdentifying] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [dragActive, setDragActive] = useState(false);
+  const [downloadingReport, setDownloadingReport] = useState(false);
 
   // Clean up ObjectURL preview on unmount
   useEffect(() => {
@@ -101,6 +105,138 @@ export default function IdentifyPage() {
       toast("Face recognition check failed", "error");
     } finally {
       setIdentifying(false);
+    }
+  }
+
+  async function handleDownloadStudentReport() {
+    if (!result) return;
+    const className = result.class_details;
+    const studentId = result.registration_number;
+    if (!className) {
+      toast("Student class details are missing", "error");
+      return;
+    }
+    setDownloadingReport(true);
+    try {
+      // 1. Fetch class courses and class attendance records in parallel
+      const [coursesData, attData] = await Promise.all([
+        request<Course[]>(
+          API_ENDPOINTS.subjects.list,
+          { params: { class_name: className } }
+        ),
+        request<AttendanceListResponse>(
+          API_ENDPOINTS.attendance.list,
+          { params: { class_name: className, limit: 1000 } }
+        )
+      ]);
+
+      const classCourses = Array.isArray(coursesData) ? coursesData : [];
+      const attendanceRecords = attData.records || [];
+
+      // 2. Map unique dates for each course to calculate completed lectures
+      const courseDatesMap: Record<string, Set<string>> = {};
+      classCourses.forEach(c => {
+        courseDatesMap[c.course_code] = new Set<string>();
+      });
+      attendanceRecords.forEach(r => {
+        let rCode = r.course_code;
+        if (!rCode && r.course_name) {
+          const matchedCourse = classCourses.find(c => c.course_name === r.course_name);
+          if (matchedCourse) rCode = matchedCourse.course_code;
+        }
+        if (rCode && courseDatesMap[rCode]) {
+          const dateStr = r.date ? r.date.split("T")[0] : "";
+          if (dateStr) {
+            courseDatesMap[rCode].add(dateStr);
+          }
+        }
+      });
+
+      // 3. Initialize jsPDF document
+      const doc = new jsPDF({
+        orientation: "portrait",
+        unit: "mm",
+        format: "a4",
+      });
+
+      // Title & Header info
+      doc.setFontSize(20);
+      doc.setFont("helvetica", "bold");
+      doc.setTextColor(15, 23, 42); // slate-900
+      doc.text("Student Attendance Report", 14, 20);
+
+      doc.setFontSize(10);
+      doc.setFont("helvetica", "normal");
+      doc.setTextColor(71, 85, 105); // slate-600
+      doc.text(`Student Name: ${result.name}`, 14, 26);
+      doc.text(`Registration Number: ${studentId}`, 14, 31);
+      doc.text(`Class: ${className}`, 14, 36);
+      doc.text(`Generated Date: ${new Date().toLocaleDateString()}`, 14, 41);
+
+      // --- Detailed Course Attendance Table for this student ---
+      doc.setFontSize(12);
+      doc.setFont("helvetica", "bold");
+      doc.setTextColor(15, 23, 42);
+      doc.text("Course Attendance Breakdown", 14, 52);
+
+      const studentCourseRows = classCourses.map(c => {
+        const totalLectures = courseDatesMap[c.course_code]?.size || 0;
+        const studentRecords = attendanceRecords.filter(r => {
+          let rCode = r.course_code;
+          if (!rCode && r.course_name) {
+            const matchedCourse = classCourses.find(c => c.course_name === r.course_name);
+            if (matchedCourse) rCode = matchedCourse.course_code;
+          }
+          if (rCode !== c.course_code) return false;
+          
+          const sId = studentId;
+          const rId = r.student_id;
+          if (rId === sId) return true;
+          
+          const cleanStudentId = sId.replace(/^0+/, "");
+          const cleanRecordId = rId.replace(/^0+/, "");
+          const rMatch = rId.match(/.*-(\d+)$/);
+          const sMatch = sId.match(/.*-(\d+)$/);
+          const rSuffix = rMatch ? rMatch[1].replace(/^0+/, "") : cleanRecordId;
+          const sSuffix = sMatch ? sMatch[1].replace(/^0+/, "") : cleanStudentId;
+          
+          return rSuffix === sSuffix && rSuffix !== "";
+        });
+        const attended = studentRecords.filter(r => r.status === "Present" || r.status === "Late").length;
+        const missed = Math.max(0, totalLectures - attended);
+        const percentage = totalLectures > 0 ? Math.round((attended / totalLectures) * 100) : 100;
+
+        return [
+          c.course_code,
+          c.course_name,
+          attended.toString(),
+          missed.toString(),
+          totalLectures.toString(),
+          `${percentage}%`
+        ];
+      });
+
+      autoTable(doc, {
+        startY: 56,
+        head: [["Course Code", "Course Name", "Attended", "Absent", "Total Lectures", "Percentage"]],
+        body: studentCourseRows,
+        theme: "grid",
+        headStyles: { fillColor: [15, 23, 42], textColor: [255, 255, 255], fontStyle: "bold" },
+        styles: { fontSize: 8.5, cellPadding: 2.5 },
+        margin: { left: 14, right: 14 }
+      });
+
+      // Save PDF File
+      const dateStr = new Date().toISOString().split('T')[0];
+      const filename = `attendance_report_${studentId}_${dateStr}.pdf`;
+      doc.save(filename);
+
+      toast("✓ PDF report downloaded successfully", "success");
+    } catch (err) {
+      console.error(err);
+      toast(err instanceof Error ? err.message : "Failed to download report", "error");
+    } finally {
+      setDownloadingReport(false);
     }
   }
 
@@ -362,6 +498,31 @@ export default function IdentifyPage() {
                           </div>
                         </div>
                       )}
+                    </div>
+
+                    {/* Attendance Report Button */}
+                    <div className="pt-2">
+                      <button
+                        type="button"
+                        disabled={downloadingReport}
+                        onClick={handleDownloadStudentReport}
+                        className="w-full cursor-pointer flex items-center justify-center gap-2 rounded-xl border py-2.5 text-xs font-semibold shadow-sm transition-all hover:bg-zinc-50 dark:hover:bg-zinc-900 disabled:opacity-50"
+                        style={{
+                          borderColor: "var(--border-default)",
+                          color: "var(--text-primary)",
+                          backgroundColor: "var(--bg-surface)",
+                          cursor: "pointer"
+                        }}
+                      >
+                        {downloadingReport ? (
+                          <><RefreshCw size={13} className="animate-spin" /> Generating Report...</>
+                        ) : (
+                          <>
+                            <Download size={13} className="text-emerald-600 dark:text-emerald-500" />
+                            Download Attendance Report
+                          </>
+                        )}
+                      </button>
                     </div>
                   </motion.div>
                 ) : (
