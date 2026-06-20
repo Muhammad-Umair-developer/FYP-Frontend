@@ -199,18 +199,18 @@ export default function IdentifyPage() {
             if (matchedCourse) rCode = matchedCourse.course_code;
           }
           if (rCode !== c.course_code) return false;
-          
+
           const sId = studentId;
           const rId = r.student_id;
           if (rId === sId) return true;
-          
+
           const cleanStudentId = sId.replace(/^0+/, "");
           const cleanRecordId = rId.replace(/^0+/, "");
           const rMatch = rId.match(/.*-(\d+)$/);
           const sMatch = sId.match(/.*-(\d+)$/);
           const rSuffix = rMatch ? rMatch[1].replace(/^0+/, "") : cleanRecordId;
           const sSuffix = sMatch ? sMatch[1].replace(/^0+/, "") : cleanStudentId;
-          
+
           return rSuffix === sSuffix && rSuffix !== "";
         });
         const attended = studentRecords.filter(r => r.status === "Present" || r.status === "Late").length;
@@ -531,7 +531,7 @@ export default function IdentifyPage() {
                       {result.class_details && (
                         <div className="flex items-center gap-3">
                           <div className="p-2 rounded-lg bg-sky-50 dark:bg-sky-950/40 text-sky-600 dark:text-sky-400">
-                             <School size={14} className="stroke-[2]" />
+                            <School size={14} className="stroke-[2]" />
                           </div>
                           <div>
                             <p className="text-[10px] text-slate-500 dark:text-zinc-400 font-bold uppercase tracking-wider">Assigned Class Collection</p>
@@ -577,7 +577,7 @@ export default function IdentifyPage() {
                     </div>
 
                     {/* Update & Delete Actions */}
-                    <div className="grid grid-cols-2 gap-3 pt-1">
+                    {/* <div className="grid grid-cols-2 gap-3 pt-1">
                       <button
                         type="button"
                         onClick={() => {
@@ -606,7 +606,7 @@ export default function IdentifyPage() {
                         <Trash2 size={13} />
                         Delete Student
                       </button>
-                    </div>
+                    </div> */}
                   </motion.div>
                 ) : (
                   <motion.div

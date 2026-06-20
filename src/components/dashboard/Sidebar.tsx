@@ -100,6 +100,7 @@ function SidebarContent({
   handleLogout: () => void;
 }) {
   const [email, setEmail] = useState<string | null>(null);
+  const [isSuperAdmin, setIsSuperAdmin] = useState<boolean>(false);
 
   useEffect(() => {
     const token = getStoredToken();
@@ -111,6 +112,7 @@ function SidebarContent({
             atob(payload.replace(/-/g, "+").replace(/_/g, "/"))
           );
           setEmail(decoded.sub || null);
+          setIsSuperAdmin(Boolean(decoded.is_super_admin));
         }
       } catch (e) {
         console.error("Error decoding token in sidebar:", e);
@@ -176,7 +178,7 @@ function SidebarContent({
           );
         })}
         {/* Role-based navigation item */}
-        {email === "admin@fyp.com" && (
+        {(isSuperAdmin || email === "admin@fyp.com") && (
           <NavItem
             href="/dashboard/add-user"
             icon={UserPlus}
@@ -204,7 +206,7 @@ function SidebarContent({
           </div>
           <div className="min-w-0">
             <p className="truncate text-xs font-semibold" style={{ color: "var(--text-primary)" }}>
-              {email === "admin@fyp.com" ? "Super Admin" : "Admin"}
+              {isSuperAdmin || email === "admin@fyp.com" ? "Super Admin" : "Admin"}
             </p>
             <p className="truncate text-[10px]" style={{ color: "var(--text-muted)" }}>
               {email || "admin@fyp.com"}

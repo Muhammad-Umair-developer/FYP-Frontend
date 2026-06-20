@@ -21,6 +21,7 @@ import {
   ArrowLeft,
 } from "lucide-react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 
 interface UserRecord {
   id: string;
@@ -31,9 +32,27 @@ interface UserRecord {
 export default function UserManagementPage() {
   const { getToken } = useAuth();
   const { toast } = useToast();
+  const router = useRouter();
 
   const [users, setUsers] = useState<UserRecord[]>([]);
   const [loadingUsers, setLoadingUsers] = useState(true);
+
+  // Decode currently logged-in user's email
+  const token = getToken();
+  let loggedInEmail = "";
+  let isCurrentUserSuperAdmin = false;
+  if (token) {
+    try {
+      const payload = token.split(".")[1];
+      if (payload) {
+        const decoded = JSON.parse(atob(payload.replace(/-/g, "+").replace(/_/g, "/")));
+        loggedInEmail = decoded.sub || "";
+        isCurrentUserSuperAdmin = Boolean(decoded.is_super_admin);
+      }
+    } catch (e) {
+      console.error("Error decoding token in user management:", e);
+    }
+  }
 
   // Modals visibility
   const [showRegisterModal, setShowRegisterModal] = useState(false);
@@ -56,8 +75,12 @@ export default function UserManagementPage() {
   const [submitting, setSubmitting] = useState(false);
 
   useEffect(() => {
-    fetchUsers();
-  }, []);
+    if (loggedInEmail && !isCurrentUserSuperAdmin && loggedInEmail !== "admin@fyp.com") {
+      router.replace("/dashboard");
+    } else {
+      fetchUsers();
+    }
+  }, [loggedInEmail, isCurrentUserSuperAdmin, router]);
 
   async function fetchUsers() {
     setLoadingUsers(true);
@@ -259,31 +282,34 @@ export default function UserManagementPage() {
                       )}
                     </td>
                     <td className="px-6 py-4 text-right space-x-2.5">
-                      <button
-                        onClick={() => {
-                          setSelectedUser(user);
-                          setUpdateEmail(user.email);
-                          setUpdateIsSuperAdmin(user.is_super_admin);
-                          setShowUpdateModal(true);
-                        }}
-                        className="cursor-pointer inline-flex items-center justify-center p-2 rounded-lg border text-slate-600 dark:text-zinc-400 hover:bg-slate-50 dark:hover:bg-zinc-800 transition-colors"
-                        style={{ borderColor: "var(--border-subtle)" }}
-                        title="Update user profile"
-                      >
-                        <Edit2 size={13} className="text-violet-600 dark:text-violet-400" />
-                      </button>
-                      <button
-                        onClick={() => {
-                          setSelectedUser(user);
-                          setShowDeleteModal(true);
-                        }}
-                        disabled={user.email === "admin@fyp.com"}
-                        className="cursor-pointer inline-flex items-center justify-center p-2 rounded-lg border text-red-600 hover:bg-red-50/40 disabled:opacity-40 disabled:hover:bg-transparent transition-colors"
-                        style={{ borderColor: "var(--border-subtle)" }}
-                        title="Delete user account"
-                      >
-                        <Trash2 size={13} />
-                      </button>
+                      {(user.email !== "admin@fyp.com" || loggedInEmail === "admin@fyp.com") && (
+                        <button
+                          onClick={() => {
+                            setSelectedUser(user);
+                            setUpdateEmail(user.email);
+                            setUpdateIsSuperAdmin(user.is_super_admin);
+                            setShowUpdateModal(true);
+                          }}
+                          className="cursor-pointer inline-flex items-center justify-center p-2 rounded-lg border text-slate-600 dark:text-zinc-400 hover:bg-slate-50 dark:hover:bg-zinc-800 transition-colors"
+                          style={{ borderColor: "var(--border-subtle)" }}
+                          title="Update user profile"
+                        >
+                          <Edit2 size={13} className="text-violet-600 dark:text-violet-400" />
+                        </button>
+                      )}
+                      {user.email !== "admin@fyp.com" && (
+                        <button
+                          onClick={() => {
+                            setSelectedUser(user);
+                            setShowDeleteModal(true);
+                          }}
+                          className="cursor-pointer inline-flex items-center justify-center p-2 rounded-lg border text-red-600 hover:bg-red-50/40 transition-colors"
+                          style={{ borderColor: "var(--border-subtle)" }}
+                          title="Delete user account"
+                        >
+                          <Trash2 size={13} />
+                        </button>
+                      )}
                     </td>
                   </tr>
                 ))}
