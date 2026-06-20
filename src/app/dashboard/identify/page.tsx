@@ -14,6 +14,8 @@ import {
   School,
   Sparkles,
   Download,
+  Edit,
+  Trash2,
 } from "lucide-react";
 import { useToast } from "@/components/ui/Toast";
 import { useApiClient } from "@/hooks/useApiClient";
@@ -44,6 +46,14 @@ export default function IdentifyPage() {
   const [error, setError] = useState<string | null>(null);
   const [dragActive, setDragActive] = useState(false);
   const [downloadingReport, setDownloadingReport] = useState(false);
+
+  // CRUD operation states
+  const [showUpdateModal, setShowUpdateModal] = useState(false);
+  const [showDeleteModal, setShowDeleteModal] = useState(false);
+  const [updateName, setUpdateName] = useState("");
+  const [updateRegNumber, setUpdateRegNumber] = useState("");
+  const [updating, setUpdating] = useState(false);
+  const [deleting, setDeleting] = useState(false);
 
   // Clean up ObjectURL preview on unmount
   useEffect(() => {
@@ -238,6 +248,50 @@ export default function IdentifyPage() {
       toast(err instanceof Error ? err.message : "Failed to download report", "error");
     } finally {
       setDownloadingReport(false);
+    }
+  }
+
+  async function handleUpdateStudent() {
+    if (!result) return;
+    setUpdating(true);
+    try {
+      await request<any>(API_ENDPOINTS.students.byId(result.registration_number), {
+        method: "PATCH",
+        params: { class_name: result.class_details },
+        body: {
+          name: updateName,
+          registration_number: updateRegNumber,
+        },
+      });
+      toast("✓ Student updated successfully", "success");
+      setResult({
+        ...result,
+        name: updateName,
+        registration_number: updateRegNumber,
+      });
+      setShowUpdateModal(false);
+    } catch (err: any) {
+      toast(err.message || "Failed to update student", "error");
+    } finally {
+      setUpdating(false);
+    }
+  }
+
+  async function handleDeleteStudent() {
+    if (!result) return;
+    setDeleting(true);
+    try {
+      await request<any>(API_ENDPOINTS.students.byId(result.registration_number), {
+        method: "DELETE",
+        params: { class_name: result.class_details },
+      });
+      toast("✓ Student deleted successfully", "success");
+      setResult(null);
+      setShowDeleteModal(false);
+    } catch (err: any) {
+      toast(err.message || "Failed to delete student", "error");
+    } finally {
+      setDeleting(false);
     }
   }
 
@@ -521,6 +575,38 @@ export default function IdentifyPage() {
                         )}
                       </button>
                     </div>
+
+                    {/* Update & Delete Actions */}
+                    <div className="grid grid-cols-2 gap-3 pt-1">
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setUpdateName(result.name);
+                          setUpdateRegNumber(result.registration_number);
+                          setShowUpdateModal(true);
+                        }}
+                        className="cursor-pointer flex items-center justify-center gap-1.5 rounded-xl border border-slate-200 dark:border-zinc-800 py-2.5 text-xs font-semibold hover:bg-slate-50 dark:hover:bg-zinc-900 transition-all duration-200"
+                        style={{
+                          color: "var(--text-primary)",
+                          backgroundColor: "var(--bg-surface)",
+                        }}
+                      >
+                        <Edit size={13} className="text-violet-600 dark:text-violet-400" />
+                        Update Profile
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setShowDeleteModal(true)}
+                        className="cursor-pointer flex items-center justify-center gap-1.5 rounded-xl border border-red-200/50 dark:border-red-900/30 py-2.5 text-xs font-semibold hover:bg-red-50/20 dark:hover:bg-red-950/10 transition-all duration-200"
+                        style={{
+                          color: "var(--danger-500)",
+                          backgroundColor: "var(--bg-surface)",
+                        }}
+                      >
+                        <Trash2 size={13} />
+                        Delete Student
+                      </button>
+                    </div>
                   </motion.div>
                 ) : (
                   <motion.div
@@ -552,6 +638,131 @@ export default function IdentifyPage() {
           </motion.div>
         </div>
       </div>
+
+      {/* Update Modal */}
+      <AnimatePresence>
+        {showUpdateModal && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              onClick={() => setShowUpdateModal(false)}
+              className="absolute inset-0 bg-black/60 backdrop-blur-sm"
+            />
+            <motion.div
+              initial={{ opacity: 0, scale: 0.95, y: 15 }}
+              animate={{ opacity: 1, scale: 1, y: 0 }}
+              exit={{ opacity: 0, scale: 0.95, y: 15 }}
+              transition={{ duration: 0.2, ease: "easeOut" }}
+              className="relative w-full max-w-md rounded-2xl border p-6 shadow-2xl bg-white dark:bg-zinc-900 border-slate-200 dark:border-zinc-800"
+            >
+              <div className="flex items-center justify-between border-b pb-3 mb-5 border-slate-100 dark:border-zinc-850">
+                <h3 className="text-sm font-bold text-slate-900 dark:text-zinc-50 flex items-center gap-1.5">
+                  <Edit size={16} className="text-violet-500" />
+                  Update Student Profile
+                </h3>
+                <button
+                  onClick={() => setShowUpdateModal(false)}
+                  className="rounded-lg p-1.5 hover:bg-slate-100 dark:hover:bg-zinc-800 text-slate-400"
+                >
+                  <X size={15} />
+                </button>
+              </div>
+
+              <div className="space-y-4">
+                <div className="space-y-1.5">
+                  <label className="text-[11px] font-bold text-slate-500 dark:text-zinc-400">Student Name</label>
+                  <input
+                    type="text"
+                    value={updateName}
+                    onChange={(e) => setUpdateName(e.target.value)}
+                    className="w-full px-3 py-2 border rounded-xl text-sm font-medium focus:outline-none focus:ring-2 focus:ring-indigo-500/20 bg-zinc-50 dark:bg-zinc-800 border-slate-200 dark:border-zinc-700 text-slate-900 dark:text-zinc-50"
+                  />
+                </div>
+                <div className="space-y-1.5">
+                  <label className="text-[11px] font-bold text-slate-500 dark:text-zinc-400">Registration Number</label>
+                  <input
+                    type="text"
+                    value={updateRegNumber}
+                    onChange={(e) => setUpdateRegNumber(e.target.value)}
+                    className="w-full px-3 py-2 border rounded-xl text-sm font-medium focus:outline-none focus:ring-2 focus:ring-indigo-500/20 bg-zinc-50 dark:bg-zinc-800 border-slate-200 dark:border-zinc-700 text-slate-900 dark:text-zinc-50"
+                  />
+                </div>
+
+                <div className="flex gap-3 pt-3">
+                  <button
+                    onClick={() => setShowUpdateModal(false)}
+                    className="flex-1 py-2.5 rounded-xl border border-slate-200 dark:border-zinc-800 text-xs font-bold hover:bg-slate-50 dark:hover:bg-zinc-900"
+                    style={{ color: "var(--text-secondary)", backgroundColor: "var(--bg-surface)" }}
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    onClick={handleUpdateStudent}
+                    disabled={updating}
+                    className="flex-1 py-2.5 rounded-xl text-xs font-bold text-white transition-all duration-150 hover:opacity-90 active:scale-[0.98]"
+                    style={{ background: "linear-gradient(135deg, var(--brand-600), var(--brand-500))" }}
+                  >
+                    {updating ? "Saving..." : "Save Changes"}
+                  </button>
+                </div>
+              </div>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
+
+      {/* Delete Confirmation Modal */}
+      <AnimatePresence>
+        {showDeleteModal && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              onClick={() => setShowDeleteModal(false)}
+              className="absolute inset-0 bg-black/60 backdrop-blur-sm"
+            />
+            <motion.div
+              initial={{ opacity: 0, scale: 0.95, y: 15 }}
+              animate={{ opacity: 1, scale: 1, y: 0 }}
+              exit={{ opacity: 0, scale: 0.95, y: 15 }}
+              transition={{ duration: 0.2, ease: "easeOut" }}
+              className="relative w-full max-w-sm rounded-2xl border p-6 shadow-2xl bg-white dark:bg-zinc-900 border-slate-200 dark:border-zinc-800 text-center"
+            >
+              <div
+                className="mx-auto flex h-12 w-12 items-center justify-center rounded-xl text-red-600 bg-red-50 dark:bg-red-950/20 mb-4"
+              >
+                <Trash2 size={20} />
+              </div>
+              <h3 className="text-base font-bold text-slate-900 dark:text-zinc-50">
+                Delete Student Profile?
+              </h3>
+              <p className="text-xs text-slate-500 dark:text-zinc-400 mt-2 leading-relaxed">
+                Are you sure you want to delete <strong>{result?.name}</strong>? This action will permanently remove their records, embeddings, and saved images.
+              </p>
+
+              <div className="flex gap-3 mt-6">
+                <button
+                  onClick={() => setShowDeleteModal(false)}
+                  className="flex-1 py-2.5 rounded-xl border border-slate-200 dark:border-zinc-800 text-xs font-bold hover:bg-slate-50 dark:hover:bg-zinc-900"
+                  style={{ color: "var(--text-secondary)", backgroundColor: "var(--bg-surface)" }}
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={handleDeleteStudent}
+                  disabled={deleting}
+                  className="flex-1 py-2.5 rounded-xl text-xs font-bold text-white transition-all bg-red-600 hover:bg-red-700 active:scale-[0.98]"
+                >
+                  {deleting ? "Deleting..." : "Delete Permanently"}
+                </button>
+              </div>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
     </div>
   );
 }

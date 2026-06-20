@@ -41,7 +41,24 @@ export default function DashboardLayout({
     }
   }, [router]);
 
-  if (!mounted || !isAuth) return null;
+  if (!mounted) {
+    return (
+      <div className="flex h-dvh overflow-hidden bg-zinc-950">
+        <div className="w-64 h-full border-r bg-zinc-900 border-zinc-800 flex flex-col p-5 space-y-4 animate-pulse">
+          <div className="h-10 bg-zinc-800 rounded-xl w-32" />
+          <div className="h-8 bg-zinc-800 rounded-lg w-full mt-8" />
+          <div className="h-8 bg-zinc-800 rounded-lg w-full" />
+          <div className="h-8 bg-zinc-800 rounded-lg w-full" />
+        </div>
+        <div className="flex-1 flex items-center justify-center">
+          <div className="h-6 w-6 animate-spin rounded-full border-2 border-indigo-500 border-t-transparent" />
+        </div>
+      </div>
+    );
+  }
+
+  if (!isAuth) return null;
+
 
   const title = PAGE_TITLES[pathname] ?? "Dashboard";
 

@@ -1,6 +1,4 @@
-"use client";
-
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { motion, AnimatePresence } from "framer-motion";
@@ -13,8 +11,9 @@ import {
   LogOut,
   X,
   ScanFace,
+  UserPlus,
 } from "lucide-react";
-import { useAuth } from "@/hooks/useAuth";
+import { useAuth, getStoredToken } from "@/hooks/useAuth";
 import { useRouter } from "next/navigation";
 
 // ---------------------------------------------------------------------------
@@ -100,6 +99,25 @@ function SidebarContent({
   onClose: () => void;
   handleLogout: () => void;
 }) {
+  const [email, setEmail] = useState<string | null>(null);
+
+  useEffect(() => {
+    const token = getStoredToken();
+    if (token) {
+      try {
+        const payload = token.split(".")[1];
+        if (payload) {
+          const decoded = JSON.parse(
+            atob(payload.replace(/-/g, "+").replace(/_/g, "/"))
+          );
+          setEmail(decoded.sub || null);
+        }
+      } catch (e) {
+        console.error("Error decoding token in sidebar:", e);
+      }
+    }
+  }, []);
+
   return (
     <div className="flex h-full flex-col">
       {/* Logo */}
@@ -157,6 +175,16 @@ function SidebarContent({
             />
           );
         })}
+        {/* Role-based navigation item */}
+        {email === "admin@fyp.com" && (
+          <NavItem
+            href="/dashboard/add-user"
+            icon={UserPlus}
+            label="Add New User"
+            active={pathname === "/dashboard/add-user"}
+            onClick={onClose}
+          />
+        )}
       </nav>
 
       {/* Bottom user + logout */}
@@ -169,17 +197,17 @@ function SidebarContent({
           style={{ backgroundColor: "var(--bg-elevated)" }}
         >
           <div
-            className="flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-full text-xs font-bold text-white"
+            className="flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-full text-xs font-bold text-white animate-pulse"
             style={{ backgroundColor: "var(--brand-500)" }}
           >
-            A
+            {email ? email.charAt(0).toUpperCase() : "U"}
           </div>
           <div className="min-w-0">
             <p className="truncate text-xs font-semibold" style={{ color: "var(--text-primary)" }}>
-              Admin
+              {email === "admin@fyp.com" ? "Super Admin" : "Admin"}
             </p>
             <p className="truncate text-[10px]" style={{ color: "var(--text-muted)" }}>
-              admin@fyp.com
+              {email || "admin@fyp.com"}
             </p>
           </div>
         </div>
