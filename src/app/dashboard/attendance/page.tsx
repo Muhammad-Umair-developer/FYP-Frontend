@@ -22,7 +22,6 @@ import { API_ENDPOINTS, apiRequest, ApiError, API_BASE_URL } from "@/config/api"
 import { getStoredToken } from "@/hooks/useAuth";
 import { useToast } from "@/components/ui/Toast";
 import type { AttendanceRecord, AttendanceStatus, Course } from "@/types/api";
-import * as XLSX from "xlsx";
 import { openExcelInNewTab } from "@/utils/exportViewer";
 
 const STATUS_CONFIG: Record<AttendanceStatus, { icon: React.ElementType; color: string; bg: string }> = {
@@ -199,6 +198,8 @@ export default function AttendancePage() {
       
       const blob = await res.blob();
       const arrayBuffer = await blob.arrayBuffer();
+      // Dynamically import xlsx on demand
+      const XLSX = await import("xlsx");
       const workbook = XLSX.read(arrayBuffer, { type: "array" });
       const firstSheetName = workbook.SheetNames[0];
       const worksheet = workbook.Sheets[firstSheetName];

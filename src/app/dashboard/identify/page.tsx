@@ -21,8 +21,6 @@ import { useToast } from "@/components/ui/Toast";
 import { useApiClient } from "@/hooks/useApiClient";
 import { API_ENDPOINTS } from "@/config/api";
 import type { IdentifyResponse, Course, AttendanceListResponse } from "@/types/api";
-import { jsPDF } from "jspdf";
-import autoTable from "jspdf-autotable";
 import { openPdfInNewTab } from "@/utils/exportViewer";
 
 interface IdentifyResult {
@@ -162,6 +160,12 @@ export default function IdentifyPage() {
           }
         }
       });
+
+      // Load PDF libraries dynamically
+      const [{ jsPDF }, { default: autoTable }] = await Promise.all([
+        import("jspdf"),
+        import("jspdf-autotable"),
+      ]);
 
       // 3. Initialize jsPDF document
       const doc = new jsPDF({

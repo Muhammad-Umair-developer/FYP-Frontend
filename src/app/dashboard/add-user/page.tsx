@@ -4,24 +4,22 @@ import { useState, useEffect } from "react";
 import { useAuth } from "@/hooks/useAuth";
 import { useToast } from "@/components/ui/Toast";
 import { API_BASE_URL } from "@/config/api";
-import { motion, AnimatePresence } from "framer-motion";
 import {
   UserPlus,
-  Mail,
-  Lock,
   Shield,
-  CheckCircle2,
-  AlertCircle,
-  X,
   Edit2,
   Trash2,
   Users,
-  ChevronRight,
   ShieldAlert,
   ArrowLeft,
 } from "lucide-react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
+import dynamic from "next/dynamic";
+
+const RegisterModal = dynamic(() => import("./components/RegisterModal"), { ssr: false });
+const UpdateModal = dynamic(() => import("./components/UpdateModal"), { ssr: false });
+const DeleteModal = dynamic(() => import("./components/DeleteModal"), { ssr: false });
 
 interface UserRecord {
   id: string;
@@ -319,238 +317,47 @@ export default function UserManagementPage() {
         )}
       </div>
 
-      {/* 1. Register User Modal */}
-      <AnimatePresence>
-        {showRegisterModal && (
-          <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
-            <motion.div
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              exit={{ opacity: 0 }}
-              onClick={() => setShowRegisterModal(false)}
-              className="absolute inset-0 bg-black/60 backdrop-blur-sm"
-            />
-            <motion.div
-              initial={{ opacity: 0, scale: 0.95, y: 15 }}
-              animate={{ opacity: 1, scale: 1, y: 0 }}
-              exit={{ opacity: 0, scale: 0.95, y: 15 }}
-              transition={{ duration: 0.2 }}
-              className="relative w-full max-w-md rounded-2xl border p-6 shadow-2xl bg-white dark:bg-zinc-900 border-slate-200 dark:border-zinc-800"
-            >
-              <div className="flex items-center justify-between border-b pb-3 mb-5 border-slate-100 dark:border-zinc-800">
-                <h3 className="text-sm font-bold text-slate-900 dark:text-zinc-50 flex items-center gap-1.5">
-                  <UserPlus size={16} className="text-indigo-500" />
-                  Register New Account
-                </h3>
-                <button onClick={() => setShowRegisterModal(false)} className="rounded-lg p-1.5 hover:bg-slate-100 dark:hover:bg-zinc-800 text-slate-400">
-                  <X size={15} />
-                </button>
-              </div>
+      {/* Modals loaded dynamically */}
+      <RegisterModal
+        isOpen={showRegisterModal}
+        onClose={() => setShowRegisterModal(false)}
+        email={email}
+        setEmail={setEmail}
+        password={password}
+        setPassword={setPassword}
+        isSuperAdmin={isSuperAdmin}
+        setIsSuperAdmin={setIsSuperAdmin}
+        onSubmit={handleRegister}
+        submitting={submitting}
+      />
 
-              <form onSubmit={handleRegister} className="space-y-4">
-                <div className="space-y-1.5">
-                  <label className="text-[11px] font-bold text-slate-500 dark:text-zinc-400">Email Address</label>
-                  <input
-                    type="email"
-                    required
-                    value={email}
-                    onChange={(e) => setEmail(e.target.value)}
-                    placeholder="admin@example.com"
-                    className="w-full px-3 py-2 border rounded-xl text-sm font-medium focus:outline-none focus:ring-2 focus:ring-indigo-500/20 bg-zinc-50 dark:bg-zinc-800 border-slate-200 dark:border-zinc-700 text-slate-900 dark:text-zinc-50"
-                  />
-                </div>
+      <UpdateModal
+        isOpen={showUpdateModal}
+        onClose={() => {
+          setShowUpdateModal(false);
+          setSelectedUser(null);
+        }}
+        selectedUser={selectedUser}
+        updateEmail={updateEmail}
+        setUpdateEmail={setUpdateEmail}
+        updatePassword={updatePassword}
+        setUpdatePassword={setUpdatePassword}
+        updateIsSuperAdmin={updateIsSuperAdmin}
+        setUpdateIsSuperAdmin={setUpdateIsSuperAdmin}
+        onSubmit={handleUpdate}
+        submitting={submitting}
+      />
 
-                <div className="space-y-1.5">
-                  <label className="text-[11px] font-bold text-slate-500 dark:text-zinc-400">Password</label>
-                  <input
-                    type="password"
-                    required
-                    value={password}
-                    onChange={(e) => setPassword(e.target.value)}
-                    placeholder="••••••••"
-                    className="w-full px-3 py-2 border rounded-xl text-sm font-medium focus:outline-none focus:ring-2 focus:ring-indigo-500/20 bg-zinc-50 dark:bg-zinc-800 border-slate-200 dark:border-zinc-700 text-slate-900 dark:text-zinc-50"
-                  />
-                </div>
-
-                <div className="rounded-xl border p-3 flex items-start gap-2.5 bg-zinc-50/50 dark:bg-zinc-800/30 border-slate-200 dark:border-zinc-700">
-                  <input
-                    type="checkbox"
-                    id="super-admin-chk"
-                    checked={isSuperAdmin}
-                    onChange={(e) => setIsSuperAdmin(e.target.checked)}
-                    className="rounded border-zinc-350 text-indigo-650 focus:ring-indigo-500 h-4 w-4 mt-0.5"
-                  />
-                  <div>
-                    <label htmlFor="super-admin-chk" className="text-xs font-bold flex items-center gap-1.5 cursor-pointer text-slate-950 dark:text-zinc-50">
-                      Assign Super Admin Role
-                    </label>
-                    <p className="text-[10px] mt-0.5 text-slate-500 dark:text-zinc-400 leading-normal">Super Admins can view, edit, register, and delete users.</p>
-                  </div>
-                </div>
-
-                <div className="flex gap-3 pt-3">
-                  <button
-                    type="button"
-                    onClick={() => setShowRegisterModal(false)}
-                    className="flex-1 py-2.5 rounded-xl border border-slate-200 dark:border-zinc-800 text-xs font-bold hover:bg-slate-50 dark:hover:bg-zinc-900"
-                    style={{ color: "var(--text-secondary)", backgroundColor: "var(--bg-surface)" }}
-                  >
-                    Cancel
-                  </button>
-                  <button
-                    type="submit"
-                    disabled={submitting}
-                    className="flex-1 py-2.5 rounded-xl text-xs font-bold text-white transition-all duration-150 hover:opacity-90 active:scale-[0.98]"
-                    style={{ background: "linear-gradient(135deg, var(--brand-600), var(--brand-500))" }}
-                  >
-                    {submitting ? "Registering..." : "Register User"}
-                  </button>
-                </div>
-              </form>
-            </motion.div>
-          </div>
-        )}
-      </AnimatePresence>
-
-      {/* 2. Update User Modal */}
-      <AnimatePresence>
-        {showUpdateModal && selectedUser && (
-          <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
-            <motion.div
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              exit={{ opacity: 0 }}
-              onClick={() => setShowUpdateModal(false)}
-              className="absolute inset-0 bg-black/60 backdrop-blur-sm"
-            />
-            <motion.div
-              initial={{ opacity: 0, scale: 0.95, y: 15 }}
-              animate={{ opacity: 1, scale: 1, y: 0 }}
-              exit={{ opacity: 0, scale: 0.95, y: 15 }}
-              transition={{ duration: 0.2 }}
-              className="relative w-full max-w-md rounded-2xl border p-6 shadow-2xl bg-white dark:bg-zinc-900 border-slate-200 dark:border-zinc-800"
-            >
-              <div className="flex items-center justify-between border-b pb-3 mb-5 border-slate-100 dark:border-zinc-800">
-                <h3 className="text-sm font-bold text-slate-900 dark:text-zinc-50 flex items-center gap-1.5">
-                  <Edit2 size={16} className="text-violet-500" />
-                  Update User Profile
-                </h3>
-                <button onClick={() => setShowUpdateModal(false)} className="rounded-lg p-1.5 hover:bg-slate-100 dark:hover:bg-zinc-800 text-slate-400">
-                  <X size={15} />
-                </button>
-              </div>
-
-              <form onSubmit={handleUpdate} className="space-y-4">
-                <div className="space-y-1.5">
-                  <label className="text-[11px] font-bold text-slate-500 dark:text-zinc-400">Email Address</label>
-                  <input
-                    type="email"
-                    value={updateEmail}
-                    onChange={(e) => setUpdateEmail(e.target.value)}
-                    className="w-full px-3 py-2 border rounded-xl text-sm font-medium focus:outline-none focus:ring-2 focus:ring-indigo-500/20 bg-zinc-50 dark:bg-zinc-800 border-slate-200 dark:border-zinc-700 text-slate-900 dark:text-zinc-50"
-                  />
-                </div>
-
-                <div className="space-y-1.5">
-                  <label className="text-[11px] font-bold text-slate-500 dark:text-zinc-400">New Password (Leave blank to keep unchanged)</label>
-                  <input
-                    type="password"
-                    value={updatePassword}
-                    onChange={(e) => setUpdatePassword(e.target.value)}
-                    placeholder="••••••••"
-                    className="w-full px-3 py-2 border rounded-xl text-sm font-medium focus:outline-none focus:ring-2 focus:ring-indigo-500/20 bg-zinc-50 dark:bg-zinc-800 border-slate-200 dark:border-zinc-700 text-slate-900 dark:text-zinc-50"
-                  />
-                </div>
-
-                <div className="rounded-xl border p-3 flex items-start gap-2.5 bg-zinc-50/50 dark:bg-zinc-800/30 border-slate-200 dark:border-zinc-700">
-                  <input
-                    type="checkbox"
-                    id="update-super-admin-chk"
-                    checked={updateIsSuperAdmin}
-                    onChange={(e) => setUpdateIsSuperAdmin(e.target.checked)}
-                    disabled={selectedUser.email === "admin@fyp.com"}
-                    className="rounded border-zinc-350 text-indigo-650 focus:ring-indigo-500 h-4 w-4 mt-0.5"
-                  />
-                  <div>
-                    <label htmlFor="update-super-admin-chk" className="text-xs font-bold flex items-center gap-1.5 cursor-pointer text-slate-950 dark:text-zinc-50">
-                      Assign Super Admin Role
-                    </label>
-                    <p className="text-[10px] mt-0.5 text-slate-500 dark:text-zinc-400 leading-normal">Super Admins can view, edit, register, and delete users.</p>
-                  </div>
-                </div>
-
-                <div className="flex gap-3 pt-3">
-                  <button
-                    type="button"
-                    onClick={() => setShowUpdateModal(false)}
-                    className="flex-1 py-2.5 rounded-xl border border-slate-200 dark:border-zinc-800 text-xs font-bold hover:bg-slate-50 dark:hover:bg-zinc-900"
-                    style={{ color: "var(--text-secondary)", backgroundColor: "var(--bg-surface)" }}
-                  >
-                    Cancel
-                  </button>
-                  <button
-                    type="submit"
-                    disabled={submitting}
-                    className="flex-1 py-2.5 rounded-xl text-xs font-bold text-white transition-all duration-150 hover:opacity-90 active:scale-[0.98]"
-                    style={{ background: "linear-gradient(135deg, var(--brand-600), var(--brand-500))" }}
-                  >
-                    {submitting ? "Updating..." : "Save Changes"}
-                  </button>
-                </div>
-              </form>
-            </motion.div>
-          </div>
-        )}
-      </AnimatePresence>
-
-      {/* 3. Delete Confirmation Modal */}
-      <AnimatePresence>
-        {showDeleteModal && selectedUser && (
-          <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
-            <motion.div
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              exit={{ opacity: 0 }}
-              onClick={() => setShowDeleteModal(false)}
-              className="absolute inset-0 bg-black/60 backdrop-blur-sm"
-            />
-            <motion.div
-              initial={{ opacity: 0, scale: 0.95, y: 15 }}
-              animate={{ opacity: 1, scale: 1, y: 0 }}
-              exit={{ opacity: 0, scale: 0.95, y: 15 }}
-              transition={{ duration: 0.2 }}
-              className="relative w-full max-w-sm rounded-2xl border p-6 shadow-2xl bg-white dark:bg-zinc-900 border-slate-200 dark:border-zinc-800 text-center"
-            >
-              <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-xl text-red-650 bg-red-50 dark:bg-red-950/20 mb-4">
-                <Trash2 size={20} />
-              </div>
-              <h3 className="text-base font-bold text-slate-900 dark:text-zinc-50">
-                Delete User Account?
-              </h3>
-              <p className="text-xs text-slate-500 dark:text-zinc-400 mt-2 leading-relaxed">
-                Are you sure you want to delete administrator <strong>{selectedUser.email}</strong>? They will lose access immediately.
-              </p>
-
-              <div className="flex gap-3 mt-6">
-                <button
-                  onClick={() => setShowDeleteModal(false)}
-                  className="flex-1 py-2.5 rounded-xl border border-slate-200 dark:border-zinc-800 text-xs font-bold hover:bg-slate-50 dark:hover:bg-zinc-900"
-                  style={{ color: "var(--text-secondary)", backgroundColor: "var(--bg-surface)" }}
-                >
-                  Cancel
-                </button>
-                <button
-                  onClick={handleDelete}
-                  disabled={submitting}
-                  className="flex-1 py-2.5 rounded-xl text-xs font-bold text-white transition-all bg-red-600 hover:bg-red-700 active:scale-[0.98]"
-                >
-                  {submitting ? "Deleting..." : "Delete Permanently"}
-                </button>
-              </div>
-            </motion.div>
-          </div>
-        )}
-      </AnimatePresence>
+      <DeleteModal
+        isOpen={showDeleteModal}
+        onClose={() => {
+          setShowDeleteModal(false);
+          setSelectedUser(null);
+        }}
+        selectedUser={selectedUser}
+        onConfirm={handleDelete}
+        submitting={submitting}
+      />
     </div>
   );
 }

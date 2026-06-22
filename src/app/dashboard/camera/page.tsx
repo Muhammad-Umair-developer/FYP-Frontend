@@ -263,12 +263,11 @@ export default function CameraPage() {
     setStreamActive(true);
 
     try {
-      // 1. Request High-Definition native video capture
+      // 1. Request standard resolution native video capture (starts much faster)
       const stream = await navigator.mediaDevices.getUserMedia({
         video: {
-          width: { ideal: 1280 },
-          height: { ideal: 720 },
-          frameRate: { ideal: 30 },
+          width: { ideal: 640 },
+          height: { ideal: 360 },
           facingMode: "user"
         },
         audio: false
@@ -341,15 +340,15 @@ export default function CameraPage() {
         if (video.readyState === video.HAVE_ENOUGH_DATA) {
           isProcessingFrameRef.current = true; // Set lock before processing/transmission
           try {
-            // Offscreen draw and encode
+            // Offscreen draw and encode at 640x360 (4x smaller payload, faster processing)
             const offscreenCanvas = document.createElement("canvas");
-            offscreenCanvas.width = 1280;
-            offscreenCanvas.height = 720;
+            offscreenCanvas.width = 640;
+            offscreenCanvas.height = 360;
             const oCtx = offscreenCanvas.getContext("2d");
             if (oCtx) {
               oCtx.imageSmoothingEnabled = true;
               oCtx.imageSmoothingQuality = "high";
-              oCtx.drawImage(video, 0, 0, 1280, 720);
+              oCtx.drawImage(video, 0, 0, 640, 360);
               const dataUrl = offscreenCanvas.toDataURL("image/jpeg", 0.7);
               const base64 = dataUrl.split(",")[1];
               wsCurrent.send(JSON.stringify({
@@ -640,8 +639,8 @@ export default function CameraPage() {
             <div className="flex-1 relative bg-zinc-950 rounded-3xl overflow-hidden border border-zinc-800/80 flex items-center justify-center shadow-2xl aspect-video lg:h-full w-full">
               <canvas
                 ref={canvasRef}
-                width={1280}
-                height={720}
+                width={640}
+                height={360}
                 className="w-full h-full object-cover bg-zinc-950"
               />
 

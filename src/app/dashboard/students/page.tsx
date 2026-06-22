@@ -2,9 +2,7 @@
 
 import { useState, useEffect, useCallback, useRef, useId } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import * as XLSX from "xlsx";
-import { jsPDF } from "jspdf";
-import autoTable from "jspdf-autotable";
+// Heavy reporting libraries are loaded dynamically in click handlers to keep page load fast
 import {
   Users, Plus, Search, RefreshCw, AlertCircle,
   ChevronRight, Camera, Trash2, X, School,
@@ -1104,10 +1102,13 @@ export default function StudentsPage() {
     });
   }, []);
 
-  const handleDownloadReport = useCallback(() => {
+  const handleDownloadReport = useCallback(async () => {
     if (!selectedClass) return;
     setDownloadingReport(true);
     try {
+      // Dynamically import heavy PDF generation libraries on demand
+      const { jsPDF } = await import("jspdf");
+      const { default: autoTable } = await import("jspdf-autotable");
       // 1. Sort students by roll number / registration number
       const sortedStudents = [...students].sort((a, b) => {
         const regA = a.reg_number || a.student_id || "";
@@ -1313,9 +1314,11 @@ export default function StudentsPage() {
     }
   }, [selectedClass, students, classCourses, attendanceRecords, toast]);
 
-  const handleDownloadCourseReport = useCallback(() => {
+  const handleDownloadCourseReport = useCallback(async () => {
     if (!selectedClass || !selectedAttendanceCourse) return;
     try {
+      // Dynamically import heavy Excel generation library on demand
+      const XLSX = await import("xlsx");
       const data = filtered.map(s => {
         const attRecord = getStudentCourseRecord(s.student_id, attendanceRecords, selectedAttendanceCourse.course_code);
         return {
