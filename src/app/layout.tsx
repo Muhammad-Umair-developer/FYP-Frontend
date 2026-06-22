@@ -58,7 +58,7 @@ export default function RootLayout({
       className={`${inter.variable} ${firaCode.variable} h-full`}
       data-scroll-behavior="smooth"
     >
-      <body className="min-h-full flex flex-col antialiased">
+      <body className="min-h-full flex flex-col antialiased" suppressHydrationWarning>
         {/*
           ThemeProvider MUST wrap the entire tree.
           It applies the .dark class to <html> based on the stored
