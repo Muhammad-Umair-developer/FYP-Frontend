@@ -2,6 +2,8 @@
 
 import { useState, useEffect, useId } from "react";
 import { useRouter } from "next/navigation";
+import Image from 'next/image';
+import logo from "./logo.png";
 import { useTheme } from "next-themes";
 import {
   motion,
@@ -485,7 +487,15 @@ export default function LandingPage() {
             className="flex h-9 w-9 items-center justify-center rounded-xl text-base font-bold text-white"
             style={{ background: "linear-gradient(135deg, var(--brand-600), var(--brand-400))" }}
           >
-            F
+           <Image 
+             src={logo} 
+             alt="Logo" 
+             className="h-full w-full object-cover rounded-xl"
+             // Since you have fixed dimensions (h-9 w-9 is 36px x 36px), 
+             // providing width and height prevents layout shifts.
+             width={36} 
+             height={36} 
+           />
           </div>
           <span className="text-base font-bold tracking-tight" style={{ color: "var(--text-primary)" }}>
             FRAS
@@ -532,7 +542,7 @@ export default function LandingPage() {
             className="mb-5 text-4xl font-extrabold leading-[1.1] tracking-tight sm:text-5xl lg:text-6xl"
             style={{ color: "var(--text-primary)" }}
           >
-            Face Recognition{" "}
+            Automated Facial Recognition{" "}
             <span
               className="bg-clip-text text-transparent"
               style={{

@@ -21,7 +21,7 @@ const firaCode = Fira_Code({
 // ---- Metadata ----------------------------------------------------
 export const metadata: Metadata = {
   title: {
-    default: "FRAS — Face Recognition Attendance System",
+    default: "Automated Facial Recognition Attendance System",
     template: "%s | FRAS",
   },
   description:
