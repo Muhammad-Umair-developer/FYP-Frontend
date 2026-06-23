@@ -101,7 +101,7 @@ export default function OverviewPage() {
         </div>
 
         {/* Backend camera quick-link */}
-        <a
+        {/* <a
           href={API_ENDPOINTS.camera}
           target="_blank"
           rel="noopener noreferrer"
@@ -114,7 +114,7 @@ export default function OverviewPage() {
         >
           <Camera size={13} />
           Open Camera Interface ↗
-        </a>
+        </a> */}
       </motion.div>
 
       {/* ── Data fetch error state ─────────────────────────────────────── */}
