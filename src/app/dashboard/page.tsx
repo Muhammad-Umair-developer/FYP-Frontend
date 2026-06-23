@@ -101,6 +101,7 @@ export default function OverviewPage() {
         </div>
 
         {/* Backend camera quick-link */}
+        
         {/* <a
           href={API_ENDPOINTS.camera}
           target="_blank"
